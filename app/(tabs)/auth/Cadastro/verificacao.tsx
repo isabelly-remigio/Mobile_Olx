@@ -21,17 +21,6 @@ const TelaVerificacaoEmail = () => {
 
   const emailUsuario = 'bellymariaa@gmail.com';
 
-  const cores = {
-    primaria: 'purple.600',
-    secundaria: 'purple.100',
-    sucesso: 'green.600',
-    texto: {
-      principal: 'gray.800',
-      secundario: 'gray.600',
-      claro: 'gray.400',
-    },
-  };
-
   // Contador regressivo
   useEffect(() => {
     if (tempoRestante > 0) {
@@ -59,36 +48,6 @@ const TelaVerificacaoEmail = () => {
     router.back();
   };
 
-  const abrirEmail = () => {
-    alert('Abrindo aplicativo de e-mail...');
-  };
-
-  // Componentes internos
-  const IconeCircular = ({ nome, cor = cores.primaria }) => (
-    <Box bg={cores.secundaria} borderRadius="full" p={6} shadow={2}>
-      <Icon as={MaterialIcons} name={nome} size="3xl" color={cor} />
-    </Box>
-  );
-
-  const BadgeInfo = ({ icone, texto, corBg, corTexto, corIcone }: any) => (
-    <HStack bg={corBg} px={4} py={3} borderRadius="lg" alignItems="center" space={2}>
-      <Icon as={MaterialIcons} name={icone} size={5} color={corIcone} />
-      <Text fontSize="sm" color={corTexto} fontWeight="medium">
-        {texto}
-      </Text>
-    </HStack>
-  );
-
-  const ItemAjuda = ({ icone, texto, cor = cores.texto.secundario }: any) => (
-    <Pressable>
-      <HStack alignItems="center" space={2}>
-        <Icon as={MaterialIcons} name={icone} size={5} color={cor} />
-        <Text fontSize="sm" color={cor}>
-          {texto}
-        </Text>
-      </HStack>
-    </Pressable>
-  );
 
   return (
     <ScrollView 
@@ -99,7 +58,6 @@ const TelaVerificacaoEmail = () => {
     >
       <VStack space={6} px={6} py={4} pb={10}>
         
-        {/* Header */}
         <Box bg="white" pt={4} pb={4}>
           <HStack alignItems="center" space={4}>
             <Pressable onPress={voltar} p={2}>
@@ -124,69 +82,84 @@ const TelaVerificacaoEmail = () => {
         <Center flex={1}>
           <VStack space={8} alignItems="center" w="100%" maxW="400px">
             
-            {/* Cabeçalho */}
             <VStack space={6} alignItems="center">
-              <IconeCircular nome="send" />
+
+              <Box bg="purple.100" borderRadius="full" p={6} shadow={2}>
+                <Icon as={MaterialIcons} name="send" size="3xl" color="purple.600" />
+              </Box>
+              
               <VStack space={3} alignItems="center">
-                <Text fontSize="3xl" fontWeight="bold" color={cores.texto.principal}>
+                <Text fontSize="3xl" fontWeight="bold" color="gray.800">
                   Verifique seu e-mail
                 </Text>
-                <Text fontSize="md" color={cores.texto.secundario} textAlign="center">
+                <Text fontSize="md" color="gray.600" textAlign="center">
                   Você precisa concluir uma etapa rápida antes de criar sua conta.
                 </Text>
               </VStack>
             </VStack>
 
-            {/* Mensagem */}
+
             <VStack space={4} alignItems="center">
-              <Text fontSize="lg" color={cores.texto.secundario} textAlign="center">
+              <Text fontSize="lg" color="gray.600" textAlign="center">
                 Clique no link que enviamos para:
               </Text>
-              <Text fontSize="xl" fontWeight="bold" color={cores.primaria}>
+              <Text fontSize="xl" fontWeight="bold" color="primary.500">
                 {emailUsuario}
               </Text>
             </VStack>
 
 
-           
-            {/* Tempo e ajuda */}
             <VStack space={4} w="100%" alignItems="center">
-              <ItemAjuda icone="schedule" texto="O e-mail pode levar até 2 minutos para chegar" />
+              <Pressable>
+                <HStack alignItems="center" space={2}>
+                  <Icon as={MaterialIcons} name="schedule" size={5} color="gray.600" />
+                  <Text fontSize="sm" color="gray.600">
+                    O e-mail pode levar até 2 minutos para chegar
+                  </Text>
+                </HStack>
+              </Pressable>
 
-              {/* Reenviar e-mail */}
               <VStack space={2} alignItems="center">
                 {emailReenviado && (
-                  <BadgeInfo
-                    icone="check-circle"
-                    texto="E-mail reenviado com sucesso!"
-                    corBg="green.100"
-                    corTexto="green.700"
-                    corIcone="green.600"
-                  />
+                  <HStack bg="green.100" px={4} py={3} borderRadius="lg" alignItems="center" space={2}>
+                    <Icon as={MaterialIcons} name="check-circle" size={5} color="green.600" />
+                    <Text fontSize="sm" color="green.700" fontWeight="medium">
+                      E-mail reenviado com sucesso!
+                    </Text>
+                  </HStack>
                 )}
 
-                <Text fontSize="sm" color={cores.texto.secundario}>
+                <Text fontSize="sm" color="gray.600">
                   Não recebeu o e-mail?
                 </Text>
 
                 {podeReenviar ? (
                   <Pressable onPress={reenviarEmail}>
-                    <Text fontSize="sm" color={cores.primaria} fontWeight="bold">
+                    <Text fontSize="sm" color="primary.500" fontWeight="bold">
                       Reenviar e-mail
                     </Text>
                   </Pressable>
                 ) : (
                   <HStack alignItems="center" space={1}>
-                    <Text fontSize="sm" color={cores.texto.claro}>
+                    <Text fontSize="sm" color="gray.400">
                       Reenviar em
                     </Text>
-                    <Text fontSize="sm" color={cores.primaria} fontWeight="bold">
+                    <Text fontSize="sm" color="primary.500" fontWeight="bold">
                       {formatarTempo(tempoRestante)}
                     </Text>
                   </HStack>
                 )}
               </VStack>
             </VStack>
+
+         
+
+            <Text fontSize="xs" color="gray.400" textAlign="center">
+              Ao verificar seu e-mail, você concorda com nossos{' '}
+              <Text color="purple.600" fontWeight="medium">
+                Termos de Uso
+              </Text>
+            </Text>
           </VStack>
         </Center>
       </VStack>

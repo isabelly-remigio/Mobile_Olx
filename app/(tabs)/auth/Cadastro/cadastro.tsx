@@ -73,7 +73,6 @@ const TelaCadastro = () => {
 
   const cadastrar = () => {
     if (podeEnviar()) {
-      // Navega para a tela de verificação existente
       router.push('/auth/Cadastro/verificacao');
     }
   };
@@ -141,7 +140,7 @@ const TelaCadastro = () => {
                   w={12}
                   h={12}
                   borderRadius="full"
-                  bg="blue.500"
+                  bg="tertiary.500"
                   alignItems="center"
                   justifyContent="center"
                   shadow={2}
@@ -157,7 +156,7 @@ const TelaCadastro = () => {
                   w={12}
                   h={12}
                   borderRadius="full"
-                  bg="blue.800"
+                  bg="tertiary.600"
                   alignItems="center"
                   justifyContent="center"
                   shadow={2}
@@ -185,7 +184,6 @@ const TelaCadastro = () => {
             </Text>
           </VStack>
 
-          {/* Campos do formulário (mantidos iguais) */}
           <VStack space={2}>
             <Text fontSize="sm" fontWeight="medium" color="gray.700">
               Como você quer ser chamado(a)?
@@ -418,9 +416,9 @@ const TelaCadastro = () => {
           </VStack>
 
           <Button
-            bg="yellow.400"
-            _pressed={{ bg: 'yellow.500' }}
-            _text={{ color: 'gray.800', fontWeight: 'bold', fontSize: 'md' }}
+            bg="secondary.500"
+            _pressed={{ bg: 'orange.600' }}
+            _text={{ color: 'white', fontWeight: 'bold', fontSize: 'md' }}
             size="lg"
             borderRadius="md"
             mt={4}
