@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  NativeBaseProvider,
   Box,
   VStack,
   HStack,
@@ -463,10 +462,4 @@ const TelaCadastro = () => {
   );
 };
 
-export default function App() {
-  return (
-    <NativeBaseProvider>
-      <TelaCadastro />
-    </NativeBaseProvider>
-  );
-}
+export default TelaCadastro;

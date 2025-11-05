@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import {
-  NativeBaseProvider,
   Box,
   VStack,
   HStack,
@@ -10,7 +9,7 @@ import {
   Center,
   Pressable,
   ScrollView,
-  Button
+  
 } from 'native-base';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
@@ -195,10 +194,4 @@ const TelaVerificacaoEmail = () => {
   );
 };
 
-export default function App() {
-  return (
-    <NativeBaseProvider>
-      <TelaVerificacaoEmail />
-    </NativeBaseProvider>
-  );
-}
+export default TelaVerificacaoEmail;
