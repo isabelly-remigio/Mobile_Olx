@@ -1,20 +1,18 @@
-import React from "react";
-import { NativeBaseProvider } from "native-base";
-import TelaLogin from "./(tabs)/auth/Login/login";
-import TelaCadastro from "./(tabs)/auth/Cadastro/cadastro";
-import TelaVerificacaoEmail from "./(tabs)/auth/Cadastro/verificacao";
-import TelaEsqueciSenha from "./(tabs)/auth/EsqueceuSenha/esqueceuSenha";
-import TelaAcesseConta from "./(tabs)/auth/Verificacao/verificacao";
-
+import React from 'react';
+import { StatusBar } from 'react-native';
+import { NativeBaseProvider } from 'native-base';
+import { AuthProvider } from './src/context/AuthContext';
+import { ProductProvider } from './src/context/ProductContext';
+import { theme } from './src/theme/theme';
 
 export default function App() {
   return (
-    <NativeBaseProvider>
-      <TelaLogin />
-      <TelaCadastro />
-      <TelaVerificacaoEmail />
-      <TelaEsqueciSenha />
-      <TelaAcesseConta />
+    <NativeBaseProvider theme={theme}>
+      <AuthProvider>
+        <ProductProvider>
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        </ProductProvider>
+      </AuthProvider>
     </NativeBaseProvider>
   );
 }

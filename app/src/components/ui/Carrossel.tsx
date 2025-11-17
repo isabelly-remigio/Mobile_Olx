@@ -1,20 +1,40 @@
-import { ScrollView, Image, Box } from 'native-base';
+// components/ui/Carrossel.tsx
 import React from 'react';
+import { Box, Image, Text, VStack, Pressable, HStack } from 'native-base';
+import { CarrosselPromocionalProps } from '../../@types/home';
 
-export function Carrossel() {
-  const imagens = [
-    'https://via.placeholder.com/200x100?text=Oferta+1',
-    'https://via.placeholder.com/200x100?text=Oferta+2',
-    'https://via.placeholder.com/200x100?text=Oferta+3',
-  ];
+const Carrossel: React.FC<CarrosselPromocionalProps> = ({ banners, onClick }) => {
+  if (!banners || banners.length === 0) return null;
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} space={2}>
-      {imagens.map((url, idx) => (
-        <Box key={idx} mr={2} borderRadius="md" overflow="hidden">
-          <Image source={{ uri: url }} alt={`Oferta ${idx + 1}`} w={200} h={100} />
+    <Box width="100%" height={200} mt={2}>
+      <Pressable onPress={() => onClick(banners[0])} flex={1}>
+        <Image
+          source={{ uri: banners[0].imagem || 'https://via.placeholder.com/400x200' }}
+          alt={banners[0].titulo}
+          width="100%"
+          height="100%"
+          resizeMode="cover"
+        />
+        <Box 
+          position="absolute" 
+          bottom={0} 
+          left={0} 
+          right={0} 
+          bg="rgba(0,0,0,0.6)" 
+          px={4} 
+          py={3}
+        >
+          <Text fontSize="lg" fontWeight="bold" color="white">
+            {banners[0].titulo}
+          </Text>
+          <Text fontSize="sm" color="white" mt={1}>
+            {banners[0].subtitulo}
+          </Text>
         </Box>
-      ))}
-    </ScrollView>
+      </Pressable>
+    </Box>
   );
-}
+};
+
+export default Carrossel;
