@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   Box,
   VStack,
@@ -9,17 +9,36 @@ import {
   Center,
   Pressable,
   ScrollView,
-  
+  Button
 } from 'native-base';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 
 const TelaVerificacaoEmail = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  
+  // Recebe todos os dados das telas anteriores
+  const dadosCadastro = {
+    nome: params.nome as string,
+    tipoConta: params.tipoConta as string,
+    cpf: params.cpf as string,
+    email: params.email as string,
+    senha: params.senha as string,
+    endereco: {
+      cep: params.cep as string,
+      rua: params.rua as string,
+      numero: params.numero as string,
+      complemento: params.complemento as string,
+      bairro: params.bairro as string,
+      cidade: params.cidade as string,
+      estado: params.estado as string
+    }
+  };
+
   const [tempoRestante, setTempoRestante] = useState(120);
   const [podeReenviar, setPodeReenviar] = useState(false);
   const [emailReenviado, setEmailReenviado] = useState(false);
-
-  const emailUsuario = 'bellymariaa@gmail.com';
+  const [codigoVerificacao, setCodigoVerificacao] = useState('');
 
   // Contador regressivo
   useEffect(() => {
@@ -31,10 +50,29 @@ const TelaVerificacaoEmail = () => {
     }
   }, [tempoRestante]);
 
+  // Simular envio do código de verificação
+  useEffect(() => {
+    // Gerar código aleatório de 6 dígitos
+    const codigo = Math.floor(100000 + Math.random() * 900000).toString();
+    setCodigoVerificacao(codigo);
+    
+    // Simular envio do email
+    console.log(`Código de verificação enviado para ${dadosCadastro.email}: ${codigo}`);
+    
+    // Em produção, aqui você faria a chamada API para enviar o email
+  }, []);
+
   const reenviarEmail = () => {
+    // Gerar novo código
+    const novoCodigo = Math.floor(100000 + Math.random() * 900000).toString();
+    setCodigoVerificacao(novoCodigo);
+    
     setEmailReenviado(true);
     setTempoRestante(120);
     setPodeReenviar(false);
+    
+    console.log(`Novo código enviado para ${dadosCadastro.email}: ${novoCodigo}`);
+    
     setTimeout(() => setEmailReenviado(false), 3000);
   };
 
@@ -44,17 +82,40 @@ const TelaVerificacaoEmail = () => {
     return `${minutos}:${segs.toString().padStart(2, '0')}`;
   };
 
+  const verificarEmail = () => {
+    // Aqui você faria a verificação do código com o back-end
+    // Por enquanto, vamos simular a verificação bem-sucedida
+    
+    // Preparar dados completos para envio ao back-end
+    const dadosCompletos = {
+      usuario: {
+        nome: dadosCadastro.nome,
+        email: dadosCadastro.email,
+        senha: dadosCadastro.senha,
+        cpf: dadosCadastro.cpf,
+        tipoConta: dadosCadastro.tipoConta
+      },
+      endereco: dadosCadastro.endereco
+    };
+
+    console.log('Dados para cadastro no back-end:', dadosCompletos);
+    
+    // Simular cadastro no back-end
+    alert('Cadastro realizado com sucesso! Verificação simulada.');
+    
+    // Navegar para a tela de sucesso ou home
+    router.replace('/(tabs)');
+  };
+
   const voltar = () => {
     router.back();
   };
-
 
   return (
     <ScrollView 
       bg="white" 
       flex={1}
       contentContainerStyle={{ flexGrow: 1 }}
-      keyboardShouldPersistTaps="handled"
     >
       <VStack space={6} px={6} py={4} pb={10}>
         
@@ -83,7 +144,6 @@ const TelaVerificacaoEmail = () => {
           <VStack space={8} alignItems="center" w="100%" maxW="400px">
             
             <VStack space={6} alignItems="center">
-
               <Box bg="purple.100" borderRadius="full" p={6} shadow={2}>
                 <Icon as={MaterialIcons} name="send" size="3xl" color="purple.600" />
               </Box>
@@ -98,16 +158,19 @@ const TelaVerificacaoEmail = () => {
               </VStack>
             </VStack>
 
-
             <VStack space={4} alignItems="center">
               <Text fontSize="lg" color="gray.600" textAlign="center">
                 Clique no link que enviamos para:
               </Text>
               <Text fontSize="xl" fontWeight="bold" color="primary.500">
-                {emailUsuario}
+                {dadosCadastro.email}
+              </Text>
+              
+              {/* Apenas para demonstração - mostrar código no console */}
+              <Text fontSize="xs" color="gray.400" textAlign="center">
+                (Para teste: código {codigoVerificacao} foi gerado - ver console)
               </Text>
             </VStack>
-
 
             <VStack space={4} w="100%" alignItems="center">
               <Pressable>
@@ -152,7 +215,18 @@ const TelaVerificacaoEmail = () => {
               </VStack>
             </VStack>
 
-         
+            {/* Botão para simular verificação concluída */}
+            <Button
+              bg="secondary.500"
+              _pressed={{ bg: 'orange.600' }}
+              _text={{ color: 'white', fontWeight: 'bold', fontSize: 'md' }}
+              size="lg"
+              borderRadius="md"
+              w="100%"
+              onPress={verificarEmail}
+            >
+              Já verifiquei meu e-mail
+            </Button>
 
             <Text fontSize="xs" color="gray.400" textAlign="center">
               Ao verificar seu e-mail, você concorda com nossos{' '}
