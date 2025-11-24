@@ -12,6 +12,7 @@ export interface Banner {
 }
 
 export interface Produto {
+  id: string; // Adicionar id
   imagem: string;
   titulo: string;
   descricao: string;
@@ -66,8 +67,9 @@ export interface CarrosselPromocionalProps {
 
 export interface CardProdutoProps {
   produto: Produto;
-  onClick: () => void;
+  onPress: () => void;
 }
+
 
 export interface FooterNavigationProps {
   ativo: string;

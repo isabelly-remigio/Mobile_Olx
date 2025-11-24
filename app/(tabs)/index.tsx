@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Box, VStack, Text, ScrollView, Center, Icon, FlatList, Pressable, HStack } from 'native-base';
 import { MaterialIcons } from '@expo/vector-icons';
-
-// Components
+import { useRouter } from 'expo-router'; 
 import Header from '../src/components/layout/Header';
 import NavCategorias from '../src/components/ui/NavCategorias';
 import BarraPesquisa from '../src/components/ui/BarraPesquisa';
@@ -10,7 +9,6 @@ import Carrossel from '../src/components/ui/Carrossel';
 import CardProduto from '../src/components/ui/CardProduto';
 import Footer from '../src/components/ui/Footer';
 
-// Types
 import { Categoria, Banner, Produto, Usuario, Filtro } from '../src/@types/home';
 
 // Categorias para os ícones
@@ -20,8 +18,7 @@ const categorias: Categoria[] = [
   { id: 'eletrodomesticos', nome: 'Eletro', icone: 'kitchen' },
   { id: 'casa', nome: 'Casa', icone: 'home' },
   { id: 'moda', nome: 'Moda', icone: 'checkroom' },
-  { id: 'eletronicos', nome: 'Eletrônicos', icone: 'devices' },
-  { id: 'esportes', nome: 'Esportes', icone: 'sports' }
+
 ];
 
 const banners: Banner[] = [
@@ -32,20 +29,21 @@ const banners: Banner[] = [
   }
 ];
 
-// PRODUTOS DIVERSOS - Misturados de várias categorias (como um marketplace real)
 const produtosDiversos: Produto[] = [
   // Celulares
   {
+    id: '1', 
     imagem: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=170&h=100&fit=crop',
     titulo: 'iPhone 13 Pro Max',
     descricao: '256GB, perfeito estado',
     preco: 4500,
-    localizacao: 'São Paulo, SP',
+    localizacao: 'Boa Viagem, PE',
     destaque: true,
     favoritado: false
   },
   // Eletrodomésticos
   {
+    id: '2',
     imagem: 'https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?w=170&h=100&fit=crop',
     titulo: 'Geladeira Brastemp',
     descricao: '375L, seminova',
@@ -56,6 +54,7 @@ const produtosDiversos: Produto[] = [
   },
   // Moda
   {
+    id: '3', 
     imagem: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=170&h=100&fit=crop',
     titulo: 'Tênis Nike Air Max',
     descricao: 'Número 42, original',
@@ -66,6 +65,7 @@ const produtosDiversos: Produto[] = [
   },
   // Eletrônicos
   {
+    id: '4',
     imagem: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=170&h=100&fit=crop',
     titulo: 'Notebook Dell Inspiron',
     descricao: 'i5, 8GB, SSD 256GB',
@@ -76,6 +76,7 @@ const produtosDiversos: Produto[] = [
   },
   // Casa
   {
+    id: '5', 
     imagem: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=170&h=100&fit=crop',
     titulo: 'Sofá 3 lugares',
     descricao: 'Estofado novo',
@@ -84,8 +85,8 @@ const produtosDiversos: Produto[] = [
     destaque: true,
     favoritado: false
   },
-  // Esportes
   {
+    id: '6', 
     imagem: 'https://images.unsplash.com/photo-1536922246289-88c42f957773?w=170&h=100&fit=crop',
     titulo: 'Bicicleta Caloi Aro 29',
     descricao: '18 marchas, suspensão',
@@ -97,6 +98,7 @@ const produtosDiversos: Produto[] = [
 ];
 
 export default function HomeScreen() {
+  const router = useRouter(); 
   const [usuarioLogado, setUsuarioLogado] = useState<Usuario | null>(null);
   const [categoriaAtiva, setCategoriaAtiva] = useState('tudo');
   const [navegacaoAtiva, setNavegacaoAtiva] = useState('inicio');
@@ -128,6 +130,10 @@ export default function HomeScreen() {
     console.log('Filtros aplicados:', filtros);
   }, []);
 
+  const handleAbrirDetalhesAnuncio = (produtoId: string) => {
+    router.push(`/(tabs)/anuncio/${produtoId}`);
+  };
+
   const renderProdutosVazios = () => (
     <Center py={10} px={4}>
       <Icon as={MaterialIcons} name="search-off" size={16} color="gray.400" />
@@ -143,14 +149,14 @@ export default function HomeScreen() {
     </Center>
   );
 
-  const renderProdutoHorizontal = ({ item }: { item: Produto }) => (
-    <Box mr={4}>
-      <CardProduto
-        produto={item}
-        onClick={() => alert(`Produto: ${item.titulo}`)}
-      />
-    </Box>
-  );
+const renderProdutoHorizontal = ({ item }: { item: Produto }) => (
+  <Box mr={4}>
+    <CardProduto
+      produto={item}
+      onPress={() => handleAbrirDetalhesAnuncio(item.id)}
+    />
+  </Box>
+);
 
   return (
     <Box flex={1} bg="gray.50">
@@ -168,7 +174,6 @@ export default function HomeScreen() {
         mostrarResultadosVazios={buscando && produtosFiltrados.length === 0}
       />
 
-      {/* ÍCONES DE CATEGORIA - Para navegação rápida */}
       <NavCategorias
         categorias={categorias}
         ativa={categoriaAtiva}
@@ -177,7 +182,6 @@ export default function HomeScreen() {
 
       <Box flex={1}>
         {buscando ? (
-          // MODO BUSCA
           produtosFiltrados.length === 0 ? (
             renderProdutosVazios()
           ) : (
@@ -189,7 +193,7 @@ export default function HomeScreen() {
                 <FlatList
                   data={produtosFiltrados}
                   renderItem={renderProdutoHorizontal}
-                  keyExtractor={(item, index) => `search-${index}`}
+                  keyExtractor={(item) => `search-${item.id}`} // MELHORE A KEY
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={{ paddingHorizontal: 16 }}
@@ -198,7 +202,6 @@ export default function HomeScreen() {
             </ScrollView>
           )
         ) : (
-          // MODO NORMAL - Produtos diversos (como um feed)
           <ScrollView 
             flex={1} 
             showsVerticalScrollIndicator={false}
@@ -210,7 +213,6 @@ export default function HomeScreen() {
               onClick={(banner) => alert(banner.titulo)}
             />
 
-            {/* PRODUTOS EM DESTAQUE - Misturados */}
             <VStack space={4} mt={4}>
               <Text fontSize="lg" fontWeight="bold" color="gray.800" px={4}>
                 Produtos em Destaque
@@ -218,14 +220,13 @@ export default function HomeScreen() {
               <FlatList
                 data={produtosDiversos.filter(p => p.destaque)}
                 renderItem={renderProdutoHorizontal}
-                keyExtractor={(item, index) => `destaque-${index}`}
+                keyExtractor={(item) => `destaque-${item.id}`} // MELHORE A KEY
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: 16 }}
               />
             </VStack>
 
-            {/* TODOS OS PRODUTOS - Misturados */}
             <VStack space={4} mt={6}>
               <Text fontSize="lg" fontWeight="bold" color="gray.800" px={4}>
                 Novos Anúncios
@@ -233,7 +234,7 @@ export default function HomeScreen() {
               <FlatList
                 data={produtosDiversos}
                 renderItem={renderProdutoHorizontal}
-                keyExtractor={(item, index) => `todos-${index}`}
+                keyExtractor={(item) => `todos-${item.id}`} // MELHORE A KEY
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: 16 }}
