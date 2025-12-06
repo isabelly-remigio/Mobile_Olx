@@ -1,51 +1,68 @@
-// components/ui/NavCategorias.tsx
 import React from 'react';
-import { ScrollView, HStack, Pressable, Text, VStack, Icon } from 'native-base';
-import { MaterialIcons } from '@expo/vector-icons';
-import { NavCategoriasProps } from '../../@types/home';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
+import { Icon } from '@rneui/themed';
+import { Categoria } from '../../@types/home';
+import { NavCategoriasStyles } from '../../styles/components/NavCategoriasStyles';
 
-const NavCategorias: React.FC<NavCategoriasProps> = ({ 
-  categorias, 
-  ativa, 
-  onChangeCategoria 
-}) => {
+interface NavCategoriasProps {
+  categorias: Categoria[];
+  ativa: string;
+  onChangeCategoria: (id: string) => void;
+}
+
+const NavCategorias = ({ categorias, ativa, onChangeCategoria }: NavCategoriasProps) => {
   return (
-    <VStack bg="white" borderBottomWidth={1} borderBottomColor="gray.200">
-      <ScrollView 
-        horizontal 
+    <View style={NavCategoriasStyles.container}>
+      <ScrollView
+        horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12 }}
+        contentContainerStyle={NavCategoriasStyles.scrollContent}
       >
-        <HStack space={4} alignItems="center">
-          {categorias.map((categoria) => (
-            <Pressable
+        {categorias.map((categoria) => {
+          const ativaCategoria = ativa === categoria.id;
+          return (
+            <TouchableOpacity
               key={categoria.id}
+              style={NavCategoriasStyles.categoriaButton}
               onPress={() => onChangeCategoria(categoria.id)}
-              alignItems="center"
-              minWidth={16}
+              activeOpacity={0.7}
             >
-              <VStack alignItems="center" space={1}>
-                <Icon
-                  as={MaterialIcons}
-                  name={categoria.icone as any}
-                  size={6}
-                  color={ativa === categoria.id ? "primary.500" : "gray.500"}
-                />
+              <View style={NavCategoriasStyles.categoriaContent}>
+                <View
+                  style={[
+                    NavCategoriasStyles.iconContainer,
+                    ativaCategoria && NavCategoriasStyles.iconContainerAtiva,
+                  ]}
+                >
+                  <Icon
+                    name={categoria.icone}
+                    type="material"
+                    size={24} // Tamanho do ícone
+                    color={ativaCategoria ? '#FFFFFF' : '#6B7280'}
+                  />
+                </View>
                 <Text
-                  fontSize="xs"
-                  fontWeight={ativa === categoria.id ? "bold" : "normal"}
-                  color={ativa === categoria.id ? "primary.500" : "gray.600"}
-                  textAlign="center"
+                  style={[
+                    NavCategoriasStyles.categoriaText,
+                    ativaCategoria 
+                      ? NavCategoriasStyles.categoriaAtivaText 
+                      : NavCategoriasStyles.categoriaInativaText,
+                  ]}
                   numberOfLines={1}
                 >
                   {categoria.nome}
                 </Text>
-              </VStack>
-            </Pressable>
-          ))}
-        </HStack>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
-    </VStack>
+    </View>
   );
 };
 

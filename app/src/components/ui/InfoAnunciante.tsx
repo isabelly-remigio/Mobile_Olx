@@ -1,102 +1,102 @@
 // components/ui/InfoAnunciante.tsx
 import React from 'react';
-import { VStack, HStack, Text, Box, Badge, Icon, Button } from 'native-base';
+import { View, TouchableOpacity } from 'react-native';
+import { Text, Icon } from '@rneui/themed';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Anunciante } from '../../@types/anuncio';
-
+import { InfoAnuncianteStyles } from '../../styles/components/InfoAnuncianteStyles';
+import { theme } from '../../theme/theme';
 interface InfoAnuncianteProps {
   anunciante: Anunciante;
   onAbrirPerfil: () => void;
 }
 
 export const InfoAnunciante: React.FC<InfoAnuncianteProps> = ({ anunciante, onAbrirPerfil }) => {
+  const formatarDataCadastro = (data: Date | string) => {
+    const ano = new Date(data).getFullYear();
+    return `Membro desde ${ano}`;
+  };
+
   return (
-    <VStack space={3} bg="gray.50" p={4} borderRadius="md">
-      <Text fontSize="md" fontWeight="semibold" color="gray.800">
-        Sobre o Anunciante
-      </Text>
+    <View style={InfoAnuncianteStyles.container}>
+      <Text style={InfoAnuncianteStyles.title}>Sobre o Anunciante</Text>
       
-      <HStack alignItems="center" space={3}>
-        <Box
-          w={12}
-          h={12}
-          bg="primary.600"
-          borderRadius="full"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Text fontSize="xl" fontWeight="bold" color="white">
-            {anunciante.nome.charAt(0)}
+      <View style={InfoAnuncianteStyles.anuncianteContainer}>
+        <View style={InfoAnuncianteStyles.avatar}>
+          <Text style={InfoAnuncianteStyles.avatarText}>
+            {anunciante.nome.charAt(0).toUpperCase()}
           </Text>
-        </Box>
-        <VStack flex={1}>
-          <Text fontSize="md" fontWeight="semibold" color="gray.800">
-            {anunciante.nome}
+        </View>
+        
+        <View style={InfoAnuncianteStyles.infoContainer}>
+          <Text style={InfoAnuncianteStyles.nome}>{anunciante.nome}</Text>
+          <Text style={InfoAnuncianteStyles.dataCadastro}>
+            {formatarDataCadastro(anunciante.dataCadastro)}
           </Text>
-          <Text fontSize="xs" color="gray.600">
-            Membro desde {new Date(anunciante.dataCadastro).getFullYear()}
-          </Text>
-        </VStack>
-      </HStack>
+        </View>
+      </View>
 
-      <HStack space={2}>
+      <View style={InfoAnuncianteStyles.badgesContainer}>
         {anunciante.emailVerificado && (
-          <Badge
-            bg="green.100"
-            _text={{ color: 'green.700', fontSize: 'xs', fontWeight: 'semibold' }}
-            borderRadius="full"
-            px={2}
-            py={1}
-          >
-            <HStack alignItems="center" space={1}>
-              <Icon as={MaterialIcons} name="check-circle" size={3} color="green.700" />
-              <Text fontSize="xs" color="green.700" fontWeight="semibold">E-mail verificado</Text>
-            </HStack>
-          </Badge>
+          <View style={[InfoAnuncianteStyles.badge, InfoAnuncianteStyles.emailBadge]}>
+            <MaterialIcons
+              name="check-circle"
+              size={12}
+              color="#047857"
+            />
+            <Text style={[InfoAnuncianteStyles.badgeText, InfoAnuncianteStyles.emailBadgeText]}>
+              E-mail verificado
+            </Text>
+          </View>
         )}
+        
         {anunciante.telefoneVerificado && (
-          <Badge
-            bg="blue.100"
-            _text={{ color: 'blue.700', fontSize: 'xs', fontWeight: 'semibold' }}
-            borderRadius="full"
-            px={2}
-            py={1}
-          >
-            <HStack alignItems="center" space={1}>
-              <Icon as={MaterialIcons} name="check-circle" size={3} color="blue.700" />
-              <Text fontSize="xs" color="blue.700" fontWeight="semibold">Telefone verificado</Text>
-            </HStack>
-          </Badge>
+          <View style={[InfoAnuncianteStyles.badge, InfoAnuncianteStyles.telefoneBadge]}>
+            <MaterialIcons
+              name="check-circle"
+              size={12}
+              color="#1E40AF"
+            />
+            <Text style={[InfoAnuncianteStyles.badgeText, InfoAnuncianteStyles.telefoneBadgeText]}>
+              Telefone verificado
+            </Text>
+          </View>
         )}
-      </HStack>
+      </View>
 
-      <VStack space={1.5}>
-        <HStack alignItems="center" space={2}>
-          <Icon as={MaterialIcons} name="location-on" size={4} color="gray.600" />
-          <Text fontSize="xs" color="gray.700">
+      <View style={{ gap: theme.spacing.sm }}>
+        <View style={InfoAnuncianteStyles.infoRow}>
+          <MaterialIcons
+            name="location-on"
+            size={16}
+            color={theme.colors.gray600}
+          />
+          <Text style={InfoAnuncianteStyles.infoText}>
             {anunciante.regiao}, {anunciante.cidade} - {anunciante.estado}
           </Text>
-        </HStack>
-        <HStack alignItems="center" space={2}>
-          <Icon as={MaterialIcons} name="access-time" size={4} color="gray.600" />
-          <Text fontSize="xs" color="gray.700">
+        </View>
+        
+        <View style={InfoAnuncianteStyles.infoRow}>
+          <MaterialIcons
+            name="access-time"
+            size={16}
+            color={theme.colors.gray600}
+          />
+          <Text style={InfoAnuncianteStyles.infoText}>
             Responde em cerca de {anunciante.tempoResposta}
           </Text>
-        </HStack>
-      </VStack>
+        </View>
+      </View>
 
-      <Button
-        bg="white"
-        borderWidth={1}
-        borderColor="primary.600"
-        _pressed={{ bg: 'primary.50' }}
-        _text={{ color: 'primary.600', fontWeight: 'semibold', fontSize: 'sm' }}
-        size="md"
-        borderRadius="md"
+      <TouchableOpacity
+        style={InfoAnuncianteStyles.button}
         onPress={onAbrirPerfil}
+        activeOpacity={0.7}
       >
-        Acessar perfil do anunciante
-      </Button>
-    </VStack>
+        <Text style={InfoAnuncianteStyles.buttonText}>
+          Acessar perfil do anunciante
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 };

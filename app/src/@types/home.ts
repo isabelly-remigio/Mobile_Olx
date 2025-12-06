@@ -5,11 +5,20 @@ export interface Categoria {
   icone: string;
 }
 
+// export interface Banner {
+//   titulo: string;
+//   subtitulo: string;
+//   imagem?: string;
+// }
+
 export interface Banner {
+  id: string;
+  imagem: string;
   titulo: string;
-  subtitulo: string;
-  imagem?: string;
+  subtitulo?: string;
+  link?: string;
 }
+
 
 export interface Produto {
   id: string; // Adicionar id

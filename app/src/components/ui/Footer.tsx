@@ -1,53 +1,57 @@
 import React from 'react';
-import { HStack, Text, Icon, Pressable } from 'native-base';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View, TouchableOpacity } from 'react-native';
+import { Text, Icon } from '@rneui/themed';
+import { useRouter } from 'expo-router';
 import { FooterNavigationProps } from '../../@types/home';
+import { FooterStyles } from '../../styles/components/FooterStyles';
+import { theme } from '../../theme/theme';
 
 const Footer = ({ ativo, onNavigate }: FooterNavigationProps) => {
+  const router = useRouter();
+  
   const itens = [
-    { id: 'inicio', icone: 'home', texto: 'Início' },
-    { id: 'explorar', icone: 'search', texto: 'Explorar' },
-    { id: 'favoritos', icone: 'favorite', texto: 'Favoritos' },
-    { id: 'carrinho', icone: 'shopping-cart', texto: 'Carrinho' },
-    { id: 'menu', icone: 'menu', texto: 'Menu' }
+    { id: 'inicio', icone: 'home', texto: 'Início', rota: '/' },
+    { id: 'explorar', icone: 'search', texto: 'Explorar', rota: '/(tabs)/explorar' },
+    { id: 'favoritos', icone: 'favorite', texto: 'Favoritos', rota: '/(tabs)/favoritos' },
+    { id: 'carrinho', icone: 'shopping-cart', texto: 'Carrinho', rota: '/(tabs)/carrinho' },
+    { id: 'menu', icone: 'menu', texto: 'Menu', rota: '/(tabs)/menu' }
   ];
   
+  const handleNavigate = (itemId: string, route: string) => {
+    if (onNavigate) {
+      onNavigate(itemId);
+    }
+    router.push(route);
+  };
+  
   return (
-    <HStack
-      bg="white"
-      h={16}
-      justifyContent="space-around"
-      alignItems="center"
-      borderTopWidth={1}
-      borderTopColor="gray.300"
-      safeAreaBottom
-      px={2}
-    >
-      {itens.map((item) => (
-        <Pressable
-          key={item.id}
-          onPress={() => onNavigate(item.id)}
-          alignItems="center"
-          flex={1}
-          py={2}
-        >
-          <Icon
-            as={MaterialIcons}
-            name={item.icone}
-            size={6}
-            color={ativo === item.id ? 'primary.500' : 'gray.500'}
-          />
-          <Text
-            fontSize="2xs"
-            fontWeight="medium"
-            color={ativo === item.id ? 'primary.500' : 'gray.500'}
-            mt={1}
+    <View style={FooterStyles.container}>
+      {itens.map((item) => {
+        const isActive = ativo === item.id;
+        const iconColor = isActive ? theme.colors.primary[500] : theme.colors.gray500;
+        const textStyle = isActive ? FooterStyles.activeText : FooterStyles.inactiveText;
+        
+        return (
+          <TouchableOpacity
+            key={item.id}
+            onPress={() => handleNavigate(item.id, item.rota)}
+            style={FooterStyles.button}
+            activeOpacity={0.7}
           >
-            {item.texto}
-          </Text>
-        </Pressable>
-      ))}
-    </HStack>
+            <Icon
+              name={item.icone}
+              type="material"
+              size={24}
+              color={iconColor}
+              style={FooterStyles.icon}
+            />
+            <Text style={[FooterStyles.text, textStyle]}>
+              {item.texto}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
   );
 };
 

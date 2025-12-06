@@ -1,35 +1,50 @@
 import React from 'react';
-import { HStack, Text, Icon, IconButton, Pressable } from 'native-base';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import { HeaderProps } from '../../@types/home'; // ← IMPORT CORRIGIDO
+import { 
+  View, 
+  Text, 
+  TouchableOpacity,
+  SafeAreaView,
+  Platform 
+} from 'react-native';
+import { Icon } from '@rneui/themed';
+import { HeaderProps } from '../../@types/home';
+import styles from '../../styles/components/HeaderStyles';
 
 const Header = ({ usuarioLogado, onToggleLogin, onNotificacoes }: HeaderProps) => {
   return (
-    <HStack
-      bg="white"
-      h={16}
-      alignItems="center"
-      justifyContent="space-between"
-      px={4}
-      borderBottomWidth={1}
-      borderBottomColor="gray.300"
-      safeAreaTop
-    >
-      <Pressable onPress={onToggleLogin}>
-        <HStack alignItems="center" space={1}>
-          <Text fontSize="sm" color="gray.800" fontWeight="medium">
-            {usuarioLogado ? `Olá, ${usuarioLogado.nome}!` : 'Buscando em DDD 81 - Grande Recife'}
-          </Text>
-          <Icon as={MaterialIcons} name="keyboard-arrow-down" size={5} color="gray.500" />
-        </HStack>
-      </Pressable>
-      <IconButton
-        icon={<Icon as={Ionicons} name="notifications-outline" size={6} color="gray.500" />}
-        onPress={onNotificacoes}
-        _pressed={{ bg: 'gray.100' }}
-        borderRadius="full"
-      />
-    </HStack>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <TouchableOpacity 
+          style={styles.locationButton}
+          onPress={onToggleLogin}
+        >
+          <View style={styles.locationContent}>
+            <Text style={styles.locationText} numberOfLines={1}>
+              {usuarioLogado ? `Olá, ${usuarioLogado.nome}!` : 'Buscando em DDD 81 - Grande Recife'}
+            </Text>
+            <Icon 
+              name="keyboard-arrow-down" 
+              type="material" 
+              color="#6B7280" // gray.500
+              size={20}
+              style={styles.arrowIcon}
+            />
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.notificationButton}
+          onPress={onNotificacoes}
+        >
+          <Icon 
+            name="notifications-outline" 
+            type="ionicon" 
+            color="#6B7280" // gray.500
+            size={24}
+          />
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
 

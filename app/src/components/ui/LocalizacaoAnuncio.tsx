@@ -1,40 +1,35 @@
 // components/ui/LocalizacaoAnuncio.tsx
 import React from 'react';
-import { VStack, HStack, Text, Icon } from 'native-base';
-import { MaterialIcons } from '@expo/vector-icons';
+import { View } from 'react-native';
+import { Text, Icon } from '@rneui/themed';
+import { Localizacao } from '../../@types/anuncio';
+import { LocalizacaoAnuncioStyles } from '../../styles/components/LocalizacaoAnuncioStyles';
+import { theme } from '../../theme/theme';
 
-interface LocalizacaoAnuncioProps {
-  bairro: string;
-  cidade: string;
-  estado: string;
-  cep: string;
-}
-
-export const LocalizacaoAnuncio: React.FC<LocalizacaoAnuncioProps> = ({ 
+export const LocalizacaoAnuncio: React.FC<Localizacao> = ({ 
   bairro, 
   cidade, 
   estado, 
   cep 
 }) => {
   return (
-    <VStack space={2}>
-      <Text fontSize="md" fontWeight="semibold" color="gray.800">
-        Localização
-      </Text>
-      <HStack alignItems="center" space={2}>
-        <Icon as={MaterialIcons} name="location-on" size={5} color="primary.600" />
-        <VStack>
-          <Text fontSize="sm" color="gray.800" fontWeight="medium">
-            {bairro}
-          </Text>
-          <Text fontSize="xs" color="gray.600">
+    <View style={LocalizacaoAnuncioStyles.container}>
+      <Text style={LocalizacaoAnuncioStyles.title}>Localização</Text>
+      <View style={LocalizacaoAnuncioStyles.locationContainer}>
+        <Icon
+          name="location-on"
+          type="material"
+          size={20}
+          color={theme.colors.primary[500]} // Usando a cor primária do tema
+        />
+        <View style={LocalizacaoAnuncioStyles.textContainer}>
+          <Text style={LocalizacaoAnuncioStyles.neighborhood}>{bairro}</Text>
+          <Text style={LocalizacaoAnuncioStyles.cityState}>
             {cidade} - {estado}
           </Text>
-          <Text fontSize="xs" color="gray.500">
-            CEP: {cep}
-          </Text>
-        </VStack>
-      </HStack>
-    </VStack>
+          <Text style={LocalizacaoAnuncioStyles.cep}>CEP: {cep}</Text>
+        </View>
+      </View>
+    </View>
   );
 };

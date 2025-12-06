@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { Platform } from 'react-native';
-import {
-  Box,
-  VStack,
-  HStack,
-  Text,
-  Input,
-  Button,
-  Icon,
-  IconButton,
-  KeyboardAvoidingView,
-} from 'native-base';
-import { MaterialIcons } from '@expo/vector-icons';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  KeyboardAvoidingView, 
+  Platform,
+  Alert,
+  SafeAreaView 
+} from 'react-native';
+import { Button, Icon } from '@rneui/themed';
 import { useRouter } from 'expo-router';
+import styles from '@/app/src/styles/EsqueceuSenha/TelaEsqueciSenhaStyles';
 
 const TelaEsqueciSenha = () => {
   const router = useRouter(); 
@@ -31,98 +30,93 @@ const TelaEsqueciSenha = () => {
 
   const enviarEmail = () => {
     if (emailValido) {
-      alert(`E-mail de recuperação enviado para ${email}`);
+      Alert.alert('Sucesso', `E-mail de recuperação enviado para ${email}`);
     }
     router.push('/auth/Verificacao/verificacao');
+  };
+
+  const handleSubmitEditing = () => {
+    if (emailValido) {
+      enviarEmail();
+    }
   };
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
+      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <Box flex={1} bg="white">
+      <SafeAreaView style={styles.safeArea}>
         {/* Header com navegação */}
-        <HStack
-          alignItems="center"
-          justifyContent="space-between"
-          px={4}
-          py={4}
-          safeAreaTop
-        >
-          <IconButton
-            icon={<Icon as={MaterialIcons} name="arrow-back" size={6} color="gray.700" />}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
             onPress={voltar}
-            _pressed={{ bg: 'gray.100' }}
-            borderRadius="full"
-          />
+          >
+            <Icon 
+              name="arrow-back" 
+              type="material" 
+              color="#374151" // gray.700
+              size={24}
+            />
+          </TouchableOpacity>
           
-          <Text fontSize="md" fontWeight="normal" color="gray.700" flex={1} ml={3}>
+          <Text style={styles.headerTitle}>
             Esqueci minha senha
           </Text>
           
-          <Box width={10} />
-        </HStack>
+          <View style={styles.headerPlaceholder} />
+        </View>
 
-        <VStack flex={1} px={6} py={8} space={6}>
-          <VStack space={3}>
-            <Text fontSize="2xl" fontWeight="bold" color="gray.800">
+        <View style={styles.content}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.mainTitle}>
               Qual o e-mail da conta?
             </Text>
-            <Text fontSize="sm" color="gray.500" lineHeight="md">
+            <Text style={styles.subtitle}>
               Um e-mail de confirmação será enviado para criar sua nova senha.
             </Text>
-          </VStack>
+          </View>
 
-          <VStack space={2} mt={4}>
-            <Text fontSize="sm" fontWeight="normal" color="gray.700">
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>
               E-mail
             </Text>
-            <Input
+            <TextInput
+              style={styles.input}
               placeholder=""
+              placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
               autoFocus={true}
-              size="lg"
-              bg="white"
-              borderColor="gray.300"
-              borderWidth={1}
-              borderRadius="lg"
               returnKeyType="done"
-              fontSize="md"
-              px={4}
-              py={3}
-              onSubmitEditing={enviarEmail}
-              _focus={{
-                borderColor: 'blue.500',
-                bg: 'white'
-              }}
+              onSubmitEditing={handleSubmitEditing}
             />
-          </VStack>
-        </VStack>
+          </View>
+        </View>
 
-        <Box px={6} pb={8} safeAreaBottom>
+        <View style={styles.footer}>
           <Button
-            bg={emailValido ? 'secondary.500' : 'gray.200'}
-            _pressed={{ bg: emailValido ? 'blue.600' : 'gray.200' }}
-            _text={{ 
-              color: emailValido ? 'white' : 'gray.400', 
-              fontWeight: 'medium', 
-              fontSize: 'md' 
-            }}
-            size="lg"
-            borderRadius="md"
-            py={4}
+            title="Enviar e-mail"
+            buttonStyle={[
+              styles.submitButton, 
+              !emailValido && styles.disabledButton
+            ]}
+            titleStyle={[
+              styles.submitButtonText, 
+              !emailValido && styles.disabledButtonText
+            ]}
             onPress={enviarEmail}
-            isDisabled={!emailValido}
-          >
-            Enviar e-mail
-          </Button>
-        </Box>
-      </Box>
+            disabled={!emailValido}
+            disabledStyle={styles.disabledButton}
+            disabledTitleStyle={styles.disabledButtonText}
+          />
+        </View>
+      </SafeAreaView>
     </KeyboardAvoidingView>
   );
 };

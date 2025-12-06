@@ -1,191 +1,107 @@
 import React from 'react';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity,
+   
+} from 'react-native';
+
+import { SafeAreaView } from 'react-native';
+import { Icon } from '@rneui/themed';
 import { useRouter } from 'expo-router';
-import {
-  NativeBaseProvider,
-  Box,
-  VStack,
-  HStack,
-  Text,
-  Icon,
-  IconButton,
-  Center,
-  Avatar
-} from 'native-base';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import styles from '@/app/src/styles/Verificacao/TelaAcesseContaStyles';
 
 const TelaAcesseConta = () => {
   const router = useRouter();
-  const emailUsuario = 'isabelly.re••••••@gmail.com'; // Email mockado - não puxa do banco
+  const emailUsuario = 'isabelly.re••••••@gmail.com'; // Email mockado
 
   const voltar = () => {
     router.back(); // Navegação com Expo Router
   };
 
-
   return (
-    <Box flex={1} bg="white">
+    <View style={styles.container}>
       {/* Header - 56px de altura */}
-      <HStack
-        alignItems="center"
-        justifyContent="space-between"
-        px="16px"
-        h="56px"
-        safeAreaTop
-      >
-        <IconButton
-          icon={
-            <Icon 
-              as={MaterialIcons} 
-              name="arrow-back" 
-              size="24px" 
-              color="rgba(0, 0, 0, 0.7)" 
-            />
-          }
-          onPress={voltar}
-          _pressed={{ bg: 'gray.100' }}
-          borderRadius="full"
-          p={0}
-        />
-        
-        <Text 
-          fontSize="16px" 
-          fontWeight="400" 
-          color="#333333"
-          flex={1}
-          ml="8px"
-        >
-          Acesse sua conta
-        </Text>
-       
-      </HStack>
-
-      <VStack flex={1} alignItems="center" px="24px">
-        {/* Ilustração do envelope - 64px do header */}
-        <Box mt="64px">
-          <Center
-            bg="#E9E1F9"
-            borderRadius="full"
-            w="96px"
-            h="96px"
-            position="relative"
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={voltar}
           >
-            {/* Envelope */}
-            <Box
-              borderWidth="3px"
-              borderColor="#6C2BD9"
-              borderRadius="md"
-              w="60px"
-              h="48px"
-              bg="white"
-              position="relative"
-            >
-              {/* Tampa do envelope */}
-              <Box
-                position="absolute"
-                top="-1px"
-                left="-1px"
-                right="-1px"
-                borderTopWidth="24px"
-                borderTopColor="#6C2BD9"
-                borderLeftWidth="30px"
-                borderLeftColor="transparent"
-                borderRightWidth="30px"
-                borderRightColor="transparent"
-              />
-            </Box>
-            
-            <Center
-              position="absolute"
-              top="8px"
-              right="8px"
-              bg="#6C2BD9"
-              borderRadius="full"
-              w="20px"
-              h="20px"
-            >
-              <Icon 
-                as={MaterialIcons} 
-                name="check" 
-                size="14px" 
-                color="white" 
-              />
-            </Center>
-          </Center>
-        </Box>
+            <Icon 
+              name="arrow-back" 
+              type="material" 
+              color="rgba(0, 0, 0, 0.7)" 
+              size={24}
+            />
+          </TouchableOpacity>
+          
+          <Text style={styles.headerTitle}>
+            Acesse sua conta
+          </Text>
+          
+          <View style={styles.headerPlaceholder} />
+        </View>
+      </SafeAreaView>
 
-        <Text
-          fontSize="20px"
-          fontWeight="700"
-          color="#1A1A1A"
-          textAlign="center"
-          mt="24px"
-          lineHeight="24px"
-        >
+      <View style={styles.content}>
+        {/* Ilustração do envelope - 64px do header */}
+        <View style={styles.envelopeContainer}>
+          <View style={styles.envelopeCircle}>
+            {/* Envelope */}
+            <View style={styles.envelope}>
+              {/* Tampa do envelope */}
+              <View style={styles.envelopeFlap} />
+            </View>
+            
+            <View style={styles.checkCircle}>
+              <Icon 
+                name="check" 
+                type="material" 
+                color="#FFFFFF" 
+                size={14}
+              />
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.title}>
           Verifique seu e-mail
         </Text>
 
-        <Text
-          fontSize="14px"
-          fontWeight="400"
-          color="#5F5F5F"
-          textAlign="center"
-          mt="8px"
-        >
+        <Text style={styles.subtitle}>
           Siga as instruções enviadas para o e-mail
         </Text>
 
-        <HStack
-          alignItems="center"
-          mt="12px"
-          h="40px"
-        >
-          <Avatar
-            bg="#C4C4C4"
-            size="28px"
-          >
-            <Icon as={MaterialIcons} name="person" size="16px" color="white" />
-          </Avatar>
-          <Text
-            fontSize="14px"
-            fontWeight="400"
-            color="#333333"
-            ml="8px"
-          >
+        <View style={styles.emailContainer}>
+          <View style={styles.avatar}>
+            <Icon 
+              name="person" 
+              type="material" 
+              color="#FFFFFF" 
+              size={16}
+            />
+          </View>
+          <Text style={styles.emailText}>
             {emailUsuario}
           </Text>
-        </HStack>
+        </View>
 
-        <Box
-          mt="32px"
-          bg="#F5F5F5"
-          borderRadius="8px"
-          w="312px"
-          minH="60px"
-          px="12px"
-          py="10px"
-        >
-          <HStack alignItems="center" space="8px">
-            <Icon
-              as={Ionicons}
-              name="mail-outline"
-              size="20px"
-              color="#757575"
-            />
-            <Text
-              fontSize="13px"
-              fontWeight="400"
-              color="#4B4B4B"
-              flex={1}
-              lineHeight="18px"
-            >
-              Caso não tenha encontrado o e-mail, verifique sua caixa de Spam.
-            </Text>
-          </HStack>
-        </Box>
+        <View style={styles.infoBox}>
+          <Icon
+            name="mail-outline"
+            type="ionicon"
+            color="#757575"
+            size={20}
+          />
+          <Text style={styles.infoText}>
+            Caso não tenha encontrado o e-mail, verifique sua caixa de Spam.
+          </Text>
+        </View>
 
-        <Box h="60px" />
-      </VStack>
-    </Box>
+        <View style={styles.spacer} />
+      </View>
+    </View>
   );
 };
 

@@ -1,16 +1,27 @@
+// screens/auth/Cadastro/TelaEndereco.tsx
 import React, { useState } from 'react';
-import { Platform } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
-  Box, VStack, HStack, Text, Input, Button, Icon, ScrollView,
-  KeyboardAvoidingView, Pressable, Select, CheckIcon
-} from 'native-base';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../../src/context/AuthContext';
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableOpacity,
+  Modal,
+  ActivityIndicator,
+} from 'react-native';
+import { Icon } from '@rneui/themed';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useAuth } from '@/app/src/context/AuthContext';
+
+import { TelaEnderecoStyles } from '@/app/src/styles/TelaCadastro/TelaEnderecoStyles';
+import { theme } from '@/app/src/theme/theme';
 
 const ESTADOS = [
-  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB',
-  'PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
+  'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC',
+  'SP', 'SE', 'TO',
 ];
 
 export default function TelaEndereco() {
@@ -26,9 +37,14 @@ export default function TelaEndereco() {
   const [cidade, setCidade] = useState('');
   const [estado, setEstado] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
+  const [showEstadoModal, setShowEstadoModal] = useState(false);
 
   const formatarCEP = (valor: string) =>
-    valor.replace(/\D/g, '').replace(/(\d{5})(\d)/, '$1-$2').slice(0, 9);
+    valor
+      .replace(/\D/g, '')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .slice(0, 9);
 
   const handleCep = async (valor: string) => {
     const novo = formatarCEP(valor);
@@ -37,7 +53,9 @@ export default function TelaEndereco() {
 
     setCarregando(true);
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${novo.replace('-', '')}/json/`);
+      const response = await fetch(
+        `https://viacep.com.br/ws/${novo.replace('-', '')}/json/`
+      );
       const data = await response.json();
       if (!data.erro) {
         setRua(data.logradouro || '');
@@ -45,30 +63,68 @@ export default function TelaEndereco() {
         setCidade(data.localidade || '');
         setEstado(data.uf || '');
       }
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
     } finally {
       setCarregando(false);
     }
   };
 
-  const podeEnviar =
-    cep.length === 9 && rua && numero && bairro && cidade && estado;
+  const podeEnviar = Boolean(
+    cep.length === 9 &&
+    rua &&
+    numero &&
+    bairro &&
+    cidade &&
+    estado
+  );
 
- const finalizar = async () => {
-  if (podeEnviar) {
-    await salvarEndereco({
-      cep,
-      rua,
-      numero,
-      complemento,
-      bairro,
-      cidade,
-      estado
-    });
+  const finalizar = async () => {
+    if (!podeEnviar) return;
 
-    router.push('/auth/Cadastro/verificacao');
-  }
-};
+    try {
+      await salvarEndereco({
+        cep,
+        rua,
+        numero,
+        complemento,
+        bairro,
+        cidade,
+        estado,
+      });
+      router.push('/auth/Cadastro/verificacao');
+    } catch (error) {
+      console.error('Erro ao salvar endereço:', error);
+    }
+  };
 
+  const renderEstadoItem = (estadoItem: string) => (
+    <TouchableOpacity
+      key={estadoItem}
+      style={TelaEnderecoStyles.estadoItem}
+      onPress={() => {
+        setEstado(estadoItem);
+        setShowEstadoModal(false);
+      }}
+    >
+      <Text
+        style={[
+          TelaEnderecoStyles.estadoText,
+          estado === estadoItem && TelaEnderecoStyles.selectedEstadoText,
+        ]}
+      >
+        {estadoItem}
+      </Text>
+      {estado === estadoItem && (
+        <Icon
+          name="check"
+          type="material"
+          size={20}
+          color={theme.colors.primary[500]}
+        />
+      )}
+    </TouchableOpacity>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -76,156 +132,232 @@ export default function TelaEndereco() {
       style={{ flex: 1 }}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
-      <ScrollView flex={1} bg="white" contentContainerStyle={{ flexGrow: 1 }}>
-        <VStack space={6} px={6} py={4} pb={10}>
+      <ScrollView
+        style={TelaEnderecoStyles.scrollView}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={TelaEnderecoStyles.content}>
+          {/* Header */}
+          <View style={TelaEnderecoStyles.header}>
+            <TouchableOpacity
+              style={TelaEnderecoStyles.backButton}
+              onPress={() => router.back()}
+            >
+              <Icon
+                name="arrow-back"
+                type="ionicon"
+                size={24}
+                color={theme.colors.gray700}
+              />
+            </TouchableOpacity>
+            <Text style={TelaEnderecoStyles.headerTitle}>Seu endereço</Text>
+          </View>
 
-          <HStack alignItems="center" space={4} pt={4}>
-            <Pressable onPress={router.back} p={2}>
-              <Icon as={Ionicons} name="arrow-back" size="lg" color="gray.700" />
-            </Pressable>
-            <Text fontSize="lg" color="gray.700">Seu endereço</Text>
-          </HStack>
-
-          <Text fontSize="md" color="gray.600" textAlign="center">
+          <Text style={TelaEnderecoStyles.infoText}>
             Informe seu endereço para entrega e localização dos anúncios
           </Text>
 
-          {/* CEP */}
-          <VStack space={2}>
-            <Text fontSize="sm" color="gray.700">CEP</Text>
-            <Input
-              placeholder="00000-000"
-              value={cep}
-              onChangeText={handleCep}
-              keyboardType="numeric"
-              maxLength={9}
-              size="lg"
-              bg="white"
-              borderColor="gray.300"
-              borderRadius="md"
-              _focus={{ borderColor: 'purple.500' }}
-              InputRightElement={
-                carregando ? (
-                  <Icon as={Ionicons} name="refresh" size={5} color="gray.500" mr={3} />
-                ) : undefined
-              }
-            />
-          </VStack>
+          {/* Formulário */}
+          <View style={TelaEnderecoStyles.formSection}>
+            {/* CEP */}
+            <View>
+              <Text style={TelaEnderecoStyles.inputLabel}>CEP</Text>
+              <View style={TelaEnderecoStyles.inputWithIcon}>
+                <TextInput
+                  style={[
+                    TelaEnderecoStyles.input,
+                    { flex: 1 },
+                    focusedInput === 'cep' && TelaEnderecoStyles.focusedInput,
+                  ]}
+                  placeholder="00000-000"
+                  value={cep}
+                  onChangeText={handleCep}
+                  keyboardType="numeric"
+                  maxLength={9}
+                  onFocus={() => setFocusedInput('cep')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+                {carregando && (
+                  <View style={TelaEnderecoStyles.loadingIcon}>
+                    <Icon
+                      name="refresh"
+                      type="ionicon"
+                      size={20}
+                      color={theme.colors.gray500}
+                    />
+                  </View>
+                )}
+              </View>
+            </View>
 
-          {/* Rua */}
-          <VStack space={2}>
-            <Text fontSize="sm" color="gray.700">Rua</Text>
-            <Input
-              placeholder="Nome da rua"
-              value={rua}
-              onChangeText={setRua}
-              size="lg"
-              bg="white"
-              borderColor="gray.300"
-              borderRadius="md"
-              _focus={{ borderColor: 'purple.500' }}
-            />
-          </VStack>
-
-          <HStack space={4}>
-            <VStack space={2} flex={2}>
-              <Text fontSize="sm" color="gray.700">Número</Text>
-              <Input
-                placeholder="123"
-                value={numero}
-                onChangeText={setNumero}
-                keyboardType="numeric"
-                size="lg"
-                bg="white"
-                borderColor="gray.300"
-                borderRadius="md"
-                _focus={{ borderColor: 'purple.500' }}
+            {/* Rua */}
+            <View>
+              <Text style={TelaEnderecoStyles.inputLabel}>Rua</Text>
+              <TextInput
+                style={[
+                  TelaEnderecoStyles.input,
+                  focusedInput === 'rua' && TelaEnderecoStyles.focusedInput,
+                ]}
+                placeholder="Nome da rua"
+                value={rua}
+                onChangeText={setRua}
+                onFocus={() => setFocusedInput('rua')}
+                onBlur={() => setFocusedInput(null)}
               />
-            </VStack>
+            </View>
 
-            <VStack space={2} flex={3}>
-              <Text fontSize="sm" color="gray.700">Complemento</Text>
-              <Input
-                placeholder="Apto, bloco, etc."
-                value={complemento}
-                onChangeText={setComplemento}
-                size="lg"
-                bg="white"
-                borderColor="gray.300"
-                borderRadius="md"
-                _focus={{ borderColor: 'purple.500' }}
+            {/* Número e Complemento */}
+            <View style={TelaEnderecoStyles.rowContainer}>
+              <View style={TelaEnderecoStyles.flex2}>
+                <Text style={TelaEnderecoStyles.inputLabel}>Número</Text>
+                <TextInput
+                  style={[
+                    TelaEnderecoStyles.input,
+                    focusedInput === 'numero' && TelaEnderecoStyles.focusedInput,
+                  ]}
+                  placeholder="123"
+                  value={numero}
+                  onChangeText={setNumero}
+                  keyboardType="numeric"
+                  onFocus={() => setFocusedInput('numero')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+              </View>
+
+              <View style={TelaEnderecoStyles.flex3}>
+                <Text style={TelaEnderecoStyles.inputLabel}>Complemento</Text>
+                <TextInput
+                  style={[
+                    TelaEnderecoStyles.input,
+                    focusedInput === 'complemento' && TelaEnderecoStyles.focusedInput,
+                  ]}
+                  placeholder="Apto, bloco, etc."
+                  value={complemento}
+                  onChangeText={setComplemento}
+                  onFocus={() => setFocusedInput('complemento')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+              </View>
+            </View>
+
+            {/* Bairro */}
+            <View>
+              <Text style={TelaEnderecoStyles.inputLabel}>Bairro</Text>
+              <TextInput
+                style={[
+                  TelaEnderecoStyles.input,
+                  focusedInput === 'bairro' && TelaEnderecoStyles.focusedInput,
+                ]}
+                placeholder="Nome do bairro"
+                value={bairro}
+                onChangeText={setBairro}
+                onFocus={() => setFocusedInput('bairro')}
+                onBlur={() => setFocusedInput(null)}
               />
-            </VStack>
-          </HStack>
+            </View>
 
-          {/* Bairro */}
-          <VStack space={2}>
-            <Text fontSize="sm" color="gray.700">Bairro</Text>
-            <Input
-              placeholder="Nome do bairro"
-              value={bairro}
-              onChangeText={setBairro}
-              size="lg"
-              bg="white"
-              borderColor="gray.300"
-              borderRadius="md"
-              _focus={{ borderColor: 'purple.500' }}
-            />
-          </VStack>
+            {/* Cidade e Estado */}
+            <View style={TelaEnderecoStyles.rowContainer}>
+              <View style={TelaEnderecoStyles.flex3}>
+                <Text style={TelaEnderecoStyles.inputLabel}>Cidade</Text>
+                <TextInput
+                  style={[
+                    TelaEnderecoStyles.input,
+                    focusedInput === 'cidade' && TelaEnderecoStyles.focusedInput,
+                  ]}
+                  placeholder="Nome da cidade"
+                  value={cidade}
+                  onChangeText={setCidade}
+                  onFocus={() => setFocusedInput('cidade')}
+                  onBlur={() => setFocusedInput(null)}
+                />
+              </View>
 
-          <HStack space={4}>
-            <VStack space={2} flex={3}>
-              <Text fontSize="sm" color="gray.700">Cidade</Text>
-              <Input
-                placeholder="Nome da cidade"
-                value={cidade}
-                onChangeText={setCidade}
-                size="lg"
-                bg="white"
-                borderColor="gray.300"
-                borderRadius="md"
-                _focus={{ borderColor: 'purple.500' }}
-              />
-            </VStack>
+              <View style={TelaEnderecoStyles.flex2}>
+                <Text style={TelaEnderecoStyles.inputLabel}>Estado</Text>
+                <TouchableOpacity
+                  style={[
+                    TelaEnderecoStyles.estadoButton,
+                    focusedInput === 'estado' && TelaEnderecoStyles.focusedInput,
+                  ]}
+                  onPress={() => {
+                    setFocusedInput('estado');
+                    setShowEstadoModal(true);
+                  }}
+                  onBlur={() => setFocusedInput(null)}
+                >
+                  <Text
+                    style={[
+                      TelaEnderecoStyles.estadoButtonText,
+                      !estado && TelaEnderecoStyles.estadoPlaceholderText,
+                    ]}
+                  >
+                    {estado || 'UF'}
+                  </Text>
+                  <Icon
+                    name="keyboard-arrow-down"
+                    type="material"
+                    size={20}
+                    color={theme.colors.gray500}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-            <VStack space={2} flex={2}>
-              <Text fontSize="sm" color="gray.700">Estado</Text>
-              <Select
-                selectedValue={estado}
-                onValueChange={setEstado}
-                placeholder="UF"
-                size="lg"
-                bg="white"
-                borderColor="gray.300"
-                borderRadius="md"
-                _selectedItem={{ bg: 'purple.100', endIcon: <CheckIcon size={4} /> }}
-                _focus={{ borderColor: 'purple.500' }}
+            {/* Botão Finalizar */}
+            <TouchableOpacity
+              style={[
+                TelaEnderecoStyles.finalizarButton,
+                !podeEnviar && TelaEnderecoStyles.disabledButton,
+              ]}
+              onPress={finalizar}
+              disabled={!podeEnviar}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  TelaEnderecoStyles.finalizarButtonText,
+                  !podeEnviar && TelaEnderecoStyles.disabledButtonText,
+                ]}
               >
-                {ESTADOS.map(e => (
-                  <Select.Item key={e} label={e} value={e} />
-                ))}
-              </Select>
-            </VStack>
-          </HStack>
+                Finalizar Cadastro
+              </Text>
+            </TouchableOpacity>
 
-          <Button
-            bg="secondary.500"
-            _pressed={{ bg: 'orange.600' }}
-            _text={{ color: 'white', fontWeight: 'bold', fontSize: 'md' }}
-            size="lg"
-            mt={6}
-            onPress={finalizar}
-            isDisabled={!podeEnviar}
-          >
-            Finalizar Cadastro
-          </Button>
-
-          <Text fontSize="xs" color="gray.500" textAlign="center" mt={4}>
-            Seu endereço será usado para calcular fretes e mostrar anúncios próximos a você.
-          </Text>
-
-        </VStack>
+            <Text style={TelaEnderecoStyles.footerText}>
+              Seu endereço será usado para calcular fretes e mostrar anúncios
+              próximos a você.
+            </Text>
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Modal para seleção de estado */}
+      <Modal
+        visible={showEstadoModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowEstadoModal(false)}
+      >
+        <TouchableOpacity
+          style={TelaEnderecoStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowEstadoModal(false)}
+        >
+          <View style={TelaEnderecoStyles.modalContent}>
+            <View style={TelaEnderecoStyles.modalHeader}>
+              <Text style={TelaEnderecoStyles.modalTitle}>Selecione o Estado</Text>
+              <TouchableOpacity onPress={() => setShowEstadoModal(false)}>
+                <Icon name="close" type="material" size={24} color={theme.colors.gray700} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {ESTADOS.map((estadoItem) => renderEstadoItem(estadoItem))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

@@ -1,39 +1,126 @@
 // components/ui/Carrossel.tsx
-import React from 'react';
-import { Box, Image, Text, VStack, Pressable, HStack } from 'native-base';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Image,
+  Dimensions,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
+import { Text } from '@rneui/themed';
 import { CarrosselPromocionalProps } from '../../@types/home';
+import { CarrosselStyles, CarrosselConstants } from '../../styles/components/CarrosselStyles';
+
+const { width: screenWidth } = Dimensions.get('window');
 
 const Carrossel: React.FC<CarrosselPromocionalProps> = ({ banners, onClick }) => {
-  if (!banners || banners.length === 0) return null;
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  return (
-    <Box width="100%" height={200} mt={2}>
-      <Pressable onPress={() => onClick(banners[0])} flex={1}>
-        <Image
-          source={{ uri: banners[0].imagem || 'https://via.placeholder.com/400x200' }}
-          alt={banners[0].titulo}
-          width="100%"
-          height="100%"
-          resizeMode="cover"
-        />
-        <Box 
-          position="absolute" 
-          bottom={0} 
-          left={0} 
-          right={0} 
-          bg="rgba(0,0,0,0.6)" 
-          px={4} 
-          py={3}
+  // Se não houver banners, retorna null
+  if (!banners || banners.length === 0) {
+    return null;
+  }
+
+  // Auto-play para múltiplos banners
+  useEffect(() => {
+    if (banners.length > 1) {
+      const interval = setInterval(() => {
+        setActiveIndex((prevIndex) => 
+          prevIndex === banners.length - 1 ? 0 : prevIndex + 1
+        );
+      }, CarrosselConstants.autoplayInterval);
+
+      return () => clearInterval(interval);
+    }
+  }, [banners.length]);
+
+  const handleScroll = (event: any) => {
+    const slideWidth = screenWidth;
+    const currentIndex = Math.round(event.nativeEvent.contentOffset.x / slideWidth);
+    setActiveIndex(currentIndex);
+  };
+
+  // Se houver apenas um banner, exibe uma versão simplificada
+  if (banners.length === 1) {
+    const banner = banners[0];
+    return (
+      <View style={CarrosselStyles.container}>
+        <TouchableOpacity
+          style={CarrosselStyles.imageContainer}
+          onPress={() => onClick(banner)}
+          activeOpacity={0.9}
         >
-          <Text fontSize="lg" fontWeight="bold" color="white">
-            {banners[0].titulo}
-          </Text>
-          <Text fontSize="sm" color="white" mt={1}>
-            {banners[0].subtitulo}
-          </Text>
-        </Box>
-      </Pressable>
-    </Box>
+          <Image
+            source={{ 
+              uri: banner.imagem || 'https://via.placeholder.com/400x200',
+              cache: 'force-cache'
+            }}
+            style={CarrosselStyles.image}
+            // defaultSource={require('../../assets/placeholder-banner.png')}
+            accessibilityLabel={banner.titulo}
+          />
+          <View style={CarrosselStyles.overlay}>
+            <Text style={CarrosselStyles.title}>{banner.titulo}</Text>
+            {banner.subtitulo && (
+              <Text style={CarrosselStyles.subtitle}>{banner.subtitulo}</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Versão com múltiplos banners e carrossel
+  return (
+    <View style={CarrosselStyles.container}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        {banners.map((banner, index) => (
+          <TouchableOpacity
+            key={banner.id || index}
+            style={[CarrosselStyles.imageContainer, { width: screenWidth }]}
+            onPress={() => onClick(banner)}
+            activeOpacity={0.9}
+          >
+            <Image
+              source={{ 
+                uri: banner.imagem || 'https://via.placeholder.com/400x200',
+                cache: 'force-cache'
+              }}
+              style={CarrosselStyles.image}
+              // defaultSource={require('../../assets/placeholder-banner.png')}
+              accessibilityLabel={banner.titulo}
+            />
+            <View style={CarrosselStyles.overlay}>
+              <Text style={CarrosselStyles.title}>{banner.titulo}</Text>
+              {banner.subtitulo && (
+                <Text style={CarrosselStyles.subtitle}>{banner.subtitulo}</Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Indicadores (dots) */}
+      {banners.length > 1 && (
+        <View style={CarrosselStyles.dotsContainer}>
+          {banners.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                CarrosselStyles.dot,
+                activeIndex === index && CarrosselStyles.activeDot,
+              ]}
+            />
+          ))}
+        </View>
+      )}
+    </View>
   );
 };
 
