@@ -47,7 +47,7 @@ const TelaEndereco = () => {
       Alert.alert(
         'Dados incompletos',
         'Por favor, complete os dados pessoais primeiro.',
-        [{ text: 'OK', onPress: () => router.push('/auth/Cadastro') }]
+        [{ text: 'OK', onPress: () => router.push('/auth/Cadastro/cadastro') }]
       );
     } else {
       console.log('✅ [ENDEREÇO] Dados pessoais encontrados!');
@@ -121,91 +121,44 @@ const TelaEndereco = () => {
     return valido;
   };
 
-  const concluirCadastro = async () => {
-    if (!personalData || !validarFormulario()) {
-      Alert.alert('Atenção', 'Preencha todos os campos obrigatórios.');
-      return;
-    }
+ const concluirCadastro = async () => {
+  if (!personalData || !validarFormulario()) {
+    Alert.alert('Atenção', 'Preencha todos os campos obrigatórios.');
+    return;
+  }
 
-    console.log('🚀 [CADASTRO FINAL] Iniciando registro completo...');
-    
-    setCarregando(true);
-    try {
-      // Preparar dados completos para registro
-      const dadosCompletos = {
-        ...personalData,
-        cep: cep.replace(/\D/g, ''),
-        logradouro: logradouro.trim(),
-        numero: numero.trim(),
-        bairro: bairro.trim(),
-        cidade: cidade.trim(),
-        uf: uf.trim().toUpperCase(),
-        complemento: complemento.trim() || '',
-      };
+  setCarregando(true);
 
-      console.log('📦 [CADASTRO FINAL] Dados completos para API:', {
-        nome: dadosCompletos.nome,
-        email: dadosCompletos.email,
-        cpfCnpj_limpo: dadosCompletos.cpfCnpj.replace(/\D/g, ''),
-        telefone_limpo: dadosCompletos.telefone.replace(/\D/g, ''),
-        dataNascimento: dadosCompletos.dataNascimento,
-        cep: dadosCompletos.cep,
-        logradouro: dadosCompletos.logradouro,
-        numero: dadosCompletos.numero,
-        bairro: dadosCompletos.bairro,
-        cidade: dadosCompletos.cidade,
-        uf: dadosCompletos.uf,
-        complemento: dadosCompletos.complemento,
-        senha: '***'
-      });
+  try {
+    const dadosCompletos = {
+      ...personalData,
+      cep: cep.replace(/\D/g, ''),
+      logradouro: logradouro.trim(),
+      numero: numero.trim(),
+      bairro: bairro.trim(),
+      cidade: cidade.trim(),
+      uf: uf.trim().toUpperCase(),
+      complemento: complemento.trim() || '',
+    };
 
-      console.log('📡 [CADASTRO FINAL] Chamando API de registro...');
-      
-      const resultado = await register(dadosCompletos);
-      
-      console.log('✅ [CADASTRO FINAL] Registro realizado com sucesso!');
-      console.log('📨 [CADASTRO FINAL] Resposta da API:', resultado);
-      
-      // Verificar se temos um token na resposta
-      if (resultado?.token) {
-        console.log('🔑 [CADASTRO FINAL] Token recebido!');
-        console.log('🔑 [CADASTRO FINAL] Token:', resultado.token.substring(0, 20) + '...');
-        
-        // Redirecionar para home (usuário já está autenticado)
-        Alert.alert(
-          'Cadastro realizado!',
-          'Sua conta foi criada com sucesso.',
-          [{ 
-            text: 'OK', 
-            onPress: () => router.replace('/(tabs)')
-          }]
-        );
-      } else {
-        console.log('⚠️ [CADASTRO FINAL] Nenhum token recebido, redirecionando para verificação...');
-        
-        Alert.alert(
-          'Cadastro realizado!',
-          'Enviamos um código de verificação para seu email.',
-          [{ 
-            text: 'OK', 
-            onPress: () => router.push(`/auth/Cadastro/verificacao?email=${encodeURIComponent(dadosCompletos.email)}`)
-          }]
-        );
-      }
-      
-    } catch (error: any) {
-      console.error('❌ [CADASTRO FINAL] Erro no registro:', error);
-      console.error('❌ [CADASTRO FINAL] Erro message:', error.message);
-      console.error('❌ [CADASTRO FINAL] Erro stack:', error.stack);
-      
-      Alert.alert(
-        'Erro no cadastro',
-        error.message || 'Não foi possível completar o cadastro. Tente novamente.'
-      );
-    } finally {
-      setCarregando(false);
-    }
-  };
+    await register(dadosCompletos);
+
+    // 🚀 independente da resposta
+    router.replace(
+      `/auth/Cadastro/verificacao?email=${encodeURIComponent(dadosCompletos.email)}`
+    );
+
+  } catch (error: any) {
+    Alert.alert(
+      'Erro no cadastro',
+      error.message || 'Não foi possível completar o cadastro.'
+    );
+  } finally {
+    setCarregando(false);
+  }
+};
+
+
 
   if (!personalData) {
     console.log('⏳ [ENDEREÇO] Aguardando dados pessoais...');

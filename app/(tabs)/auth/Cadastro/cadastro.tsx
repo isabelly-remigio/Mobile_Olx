@@ -144,49 +144,32 @@ const TelaCadastro = () => {
   // Ações
   // -----------------------------
   const cadastrar = async () => {
-    if (!podeEnviar()) return;
+  if (!podeEnviar()) return;
 
-    console.log('📝 [CADASTRO] Iniciando processo de cadastro...');
-    console.log('📝 [CADASTRO] Dados coletados:');
-    console.log('- Nome:', nome);
-    console.log('- Email:', email);
-    console.log('- CPF/CNPJ:', documento);
-    console.log('- Telefone:', telefone);
-    console.log('- Data Nascimento:', dataNascimento);
-
-    setCarregando(true);
-    try {
-      // Converter data de DD/MM/AAAA para AAAA-MM-DD
-      const [dia, mes, ano] = dataNascimento.split('/');
+  setCarregando(true);
+  try {
+    // Converter data de DD/MM/AAAA para AAAA-MM-DD
+    const [dia, mes, ano] = dataNascimento.split('/');
     const dataNascimentoFormatada = `${dia}/${mes}/${ano}`;
-      const dadosPessoais = { 
-        nome, 
-        email,
-        senha,
-        cpfCnpj: documento,
-        telefone: telefone,
-        dataNascimento: dataNascimentoFormatada
-      };
 
-      console.log('💾 [CADASTRO] Salvando dados pessoais no contexto...');
-      console.log('💾 [CADASTRO] Dados formatados para envio:', {
-        ...dadosPessoais,
-        senha: '***'
-      });
+    const dadosPessoais = {
+      nome,
+      email,
+      senha,
+      cpfCnpj: documento,
+      telefone: telefone,
+      dataNascimento: dataNascimentoFormatada,
+    };
 
-      savePersonalData(dadosPessoais);
-      
-      console.log('✅ [CADASTRO] Dados salvos com sucesso!');
-      console.log('➡️ [CADASTRO] Redirecionando para tela de endereço...');
-      
-      router.push('/auth/Cadastro/endereco');
-    } catch (error) {
-      console.error('❌ [CADASTRO] Erro ao salvar dados:', error);
-      Alert.alert('Erro', 'Não foi possível salvar os dados. Tente novamente.');
-    } finally {
-      setCarregando(false);
-    }
-  };
+    savePersonalData(dadosPessoais);
+
+    router.push('/auth/Cadastro/endereco');
+  } catch (error) {
+    Alert.alert('Erro', 'Não foi possível salvar os dados. Tente novamente.');
+  } finally {
+    setCarregando(false);
+  }
+};
 
   const statusSenha = validarSenha(senha);
   const statusConfirmacao = validarConfirmacao();
