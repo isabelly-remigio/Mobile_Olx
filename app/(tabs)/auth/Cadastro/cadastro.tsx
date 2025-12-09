@@ -71,13 +71,17 @@ const TelaCadastro = () => {
     }
   };
 
-  const formatarDataNascimento = (valor: string) => {
-    const apenasNumeros = valor.replace(/\D/g, '');
-    return apenasNumeros
-      .slice(0, 8)
-      .replace(/(\d{2})(\d)/, '$1/$2')
-      .replace(/(\d{2})(\d)/, '$1/$2');
-  };
+ const formatarDataNascimento = (valor: string) => {
+  const apenasNumeros = valor.replace(/\D/g, '').slice(0, 8);
+
+  if (apenasNumeros.length <= 2) {
+    return apenasNumeros;
+  } else if (apenasNumeros.length <= 4) {
+    return apenasNumeros.replace(/(\d{2})(\d{1,2})/, '$1/$2');
+  } else {
+    return apenasNumeros.replace(/(\d{2})(\d{2})(\d{1,4})/, '$1/$2/$3');
+  }
+};
 
   React.useEffect(() => {
     setDocumento('');
@@ -154,8 +158,7 @@ const TelaCadastro = () => {
     try {
       // Converter data de DD/MM/AAAA para AAAA-MM-DD
       const [dia, mes, ano] = dataNascimento.split('/');
-      const dataNascimentoFormatada = `${ano}-${mes}-${dia}`;
-
+    const dataNascimentoFormatada = `${dia}/${mes}/${ano}`;
       const dadosPessoais = { 
         nome, 
         email,
