@@ -1,5 +1,4 @@
-// screens/TelaMenu.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,21 +7,15 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
-  Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Avatar, Icon, Overlay, Button } from '@rneui/themed';
-import { MaterialIcons } from '@expo/vector-icons';
-import { theme } from '../src/theme/theme';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/app/src/context/AuthContext';
+import { theme } from '../src/theme/theme';
 
 // Tipos
-interface Usuario {
-  id: string;
-  nome: string;
-  email: string;
-  foto?: string;
-}
-
 interface ItemMenu {
   id: string;
   titulo: string;
@@ -32,32 +25,33 @@ interface ItemMenu {
 }
 
 const TelaMenu: React.FC = () => {
-        const router = useRouter();
-  const [usuario] = useState<Usuario>({
-    id: '1',
-    nome: 'Maria Silva',
-    email: 'maria.silva@email.com',
-    foto: undefined, // Se tiver foto: 'https://...'
-  });
-
+  const router = useRouter();
+  const { user, loading, signOut } = useAuth();
   const [modalLogoutVisivel, setModalLogoutVisivel] = useState(false);
 
- const navegarParaPerfil = () => {
-    console.log('Navegando para Perfil');
-  router.push('/(tabs)/perfil');
-};
+  // Verificar se o usuário está logado
+  useEffect(() => {
+    if (!loading && !user) {
+      Alert.alert(
+        'Acesso restrito',
+        'Faça login para acessar o menu.',
+        [{ text: 'OK', onPress: () => router.push('/auth/Login/login') }]
+      );
+    }
+  }, [user, loading, router]);
 
-
+  const navegarParaPerfil = () => {
+    router.push('/perfil');
+  };
 
   const navegarParaMinhasCompras = () => {
-    console.log('Navegando para Minhas Compras');
     router.push('/(tabs)/compras');
   };
 
   const confirmarLogout = () => {
     setModalLogoutVisivel(false);
-    console.log('Usuário saiu');
-    // Limpar dados de sessão e navegar para login
+    signOut();
+    router.push('/');
   };
 
   const cancelarLogout = () => {
@@ -70,14 +64,35 @@ const TelaMenu: React.FC = () => {
     return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
   };
 
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+      </View>
+    );
+  }
+
+  // Se não estiver logado, não renderizar nada (será redirecionado)
+  if (!user) {
+    return null;
+  }
+
   const opcoesMenu: ItemMenu[] = [
-    
+    {
+      id: 'perfil',
+      titulo: 'Meu perfil',
+      icone: 'person',
+      onPress: navegarParaPerfil,
+    },
+  
     {
       id: 'compras',
       titulo: 'Minhas compras',
       icone: 'shopping-bag',
       onPress: navegarParaMinhasCompras,
     },
+    
   ];
 
   const renderItemMenu = (item: ItemMenu) => (
@@ -112,7 +127,7 @@ const TelaMenu: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar  backgroundColor={theme.colors.white} />
+      <StatusBar backgroundColor={theme.colors.white} />
       
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header com Informações do Usuário */}
@@ -121,13 +136,12 @@ const TelaMenu: React.FC = () => {
             <Avatar
               size={44}
               rounded
-              title={getIniciais(usuario.nome)}
+              title={getIniciais(user.nome)}
               containerStyle={styles.avatar}
-              source={usuario.foto ? { uri: usuario.foto } : undefined}
               titleStyle={styles.avatarTitle}
             />
             <View style={styles.userText}>
-              <Text style={styles.userName}>{usuario.nome}</Text>
+              <Text style={styles.userName}>{user.nome}</Text>
               <TouchableOpacity onPress={navegarParaPerfil}>
                 <Text style={styles.profileLink}>Meu perfil</Text>
               </TouchableOpacity>
@@ -211,6 +225,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.white,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+  },
   scrollView: {
     flex: 1,
   },
@@ -233,7 +253,7 @@ const styles = StyleSheet.create({
   },
   avatarTitle: {
     fontSize: 16,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: 'bold',
   },
   userText: {
     marginLeft: 12,
@@ -241,12 +261,12 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 16,
-    fontWeight: theme.typography.weights.semibold,
+    fontWeight: '600',
     color: '#333333',
   },
   profileLink: {
     fontSize: 14,
-    fontWeight: theme.typography.weights.normal,
+    fontWeight: 'normal',
     color: '#007AFF',
   },
 
@@ -270,7 +290,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    fontWeight: theme.typography.weights.normal,
+    fontWeight: 'normal',
     color: '#000000',
   },
   logoutText: {
@@ -295,14 +315,14 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: 'bold',
     color: theme.colors.gray900,
     textAlign: 'center',
     marginBottom: 12,
   },
   modalText: {
     fontSize: 14,
-    fontWeight: theme.typography.weights.normal,
+    fontWeight: 'normal',
     color: theme.colors.gray700,
     textAlign: 'center',
     lineHeight: 20,
@@ -319,7 +339,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     fontSize: 16,
-    fontWeight: theme.typography.weights.semibold,
+    fontWeight: '600',
   },
   cancelButton: {
     backgroundColor: theme.colors.white,
@@ -331,7 +351,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#333333',
     fontSize: 16,
-    fontWeight: theme.typography.weights.semibold,
+    fontWeight: '600',
   },
 });
 

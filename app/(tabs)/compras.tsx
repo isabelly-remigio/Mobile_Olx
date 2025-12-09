@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { theme } from '../src/theme/theme';
 import { Icon } from '@rneui/themed';
-
+import { useRouter } from 'expo-router';
 // Tipos em português
 type StatusCompra = 'entregue' | 'enviado' | 'cancelado' | 'aguardando_pagamento' | 'aguardando_envio';
 
@@ -69,6 +69,7 @@ const ComprasScreen: React.FC<ComprasScreenProps> = ({ navegacao }) => {
   const [compras, setCompras] = React.useState<ItemCompra[]>(comprasMock);
   const [estaCarregando, setEstaCarregando] = React.useState(false);
   const [estaVazio, setEstaVazio] = React.useState(false);
+  const router = useRouter();
 
   // Função para obter a cor do status
   const obterCorStatus = (status: StatusCompra): string => {
@@ -210,7 +211,7 @@ const ComprasScreen: React.FC<ComprasScreenProps> = ({ navegacao }) => {
   const renderizarHeader = () => (
     <View style={estilos.header}>
       <TouchableOpacity
-        onPress={() => navegacao.goBack()}
+        onPress={() => router.back()}
         style={estilos.botaoVoltar}
         activeOpacity={theme.opacity.active}
       >

@@ -1,22 +1,19 @@
-// screens/auth/Cadastro/TelaEndereco.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   TouchableOpacity,
-  Modal,
   ActivityIndicator,
+  Alert,
+  Modal,
 } from 'react-native';
 import { Icon } from '@rneui/themed';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@/app/src/context/AuthContext';
-
-import { TelaEnderecoStyles } from '@/app/src/styles/TelaCadastro/TelaEnderecoStyles';
 import { theme } from '@/app/src/theme/theme';
+import { TelaEnderecoStyles } from '@/app/src/styles/TelaCadastro/TelaEnderecoStyles';
 
 const ESTADOS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
@@ -24,98 +21,220 @@ const ESTADOS = [
   'SP', 'SE', 'TO',
 ];
 
-export default function TelaEndereco() {
-  const { nome, tipoConta, cpf, email, senha } = useLocalSearchParams();
+const TelaEndereco = () => {
   const router = useRouter();
-  const { salvarEndereco } = useAuth();
-
+  const { register, personalData } = useAuth();
+  
   const [cep, setCep] = useState('');
-  const [rua, setRua] = useState('');
+  const [logradouro, setLogradouro] = useState('');
   const [numero, setNumero] = useState('');
-  const [complemento, setComplemento] = useState('');
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
-  const [estado, setEstado] = useState('');
+  const [uf, setUf] = useState('');
+  const [complemento, setComplemento] = useState('');
   const [carregando, setCarregando] = useState(false);
+  const [buscandoCep, setBuscandoCep] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
   const [showEstadoModal, setShowEstadoModal] = useState(false);
 
-  const formatarCEP = (valor: string) =>
-    valor
-      .replace(/\D/g, '')
-      .replace(/(\d{5})(\d)/, '$1-$2')
-      .slice(0, 9);
-
-  const handleCep = async (valor: string) => {
-    const novo = formatarCEP(valor);
-    setCep(novo);
-    if (novo.length !== 9) return;
-
-    setCarregando(true);
-    try {
-      const response = await fetch(
-        `https://viacep.com.br/ws/${novo.replace('-', '')}/json/`
+  // Verificar se há dados pessoais
+  useEffect(() => {
+    console.log('📍 [ENDEREÇO] Verificando dados pessoais...');
+    console.log('📍 [ENDEREÇO] PersonalData recebido:', personalData);
+    
+    if (!personalData) {
+      console.log('❌ [ENDEREÇO] Nenhum dado pessoal encontrado!');
+      Alert.alert(
+        'Dados incompletos',
+        'Por favor, complete os dados pessoais primeiro.',
+        [{ text: 'OK', onPress: () => router.push('/auth/Cadastro') }]
       );
+    } else {
+      console.log('✅ [ENDEREÇO] Dados pessoais encontrados!');
+      console.log('- Nome:', personalData.nome);
+      console.log('- Email:', personalData.email);
+    }
+  }, []);
+
+  const formatarCEP = (valor: string) => {
+    const apenasNumeros = valor.replace(/\D/g, '');
+    return apenasNumeros
+      .slice(0, 8)
+      .replace(/(\d{5})(\d)/, '$1-$2');
+  };
+
+  const buscarCEP = async () => {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
+
+    setBuscandoCep(true);
+    try {
+      console.log('🗺️ [CEP] Buscando endereço para CEP:', cepLimpo);
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
       const data = await response.json();
+
       if (!data.erro) {
-        setRua(data.logradouro || '');
+        console.log('✅ [CEP] Endereço encontrado:', data);
+        setLogradouro(data.logradouro || '');
         setBairro(data.bairro || '');
         setCidade(data.localidade || '');
-        setEstado(data.uf || '');
+        setUf(data.uf || '');
+      } else {
+        console.log('❌ [CEP] CEP não encontrado');
+        Alert.alert('CEP não encontrado', 'Verifique o CEP informado.');
       }
     } catch (error) {
-      console.error('Erro ao buscar CEP:', error);
+      console.error('❌ [CEP] Erro ao buscar CEP:', error);
+      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.');
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
+
+  const handleCepChange = (valor: string) => {
+    const formatado = formatarCEP(valor);
+    setCep(formatado);
+    
+    if (formatado.length === 9) {
+      buscarCEP();
+    }
+  };
+
+  const validarFormulario = () => {
+    const valido = (
+      cep.replace(/\D/g, '').length === 8 &&
+      logradouro.trim() &&
+      numero.trim() &&
+      bairro.trim() &&
+      cidade.trim() &&
+      uf.trim()
+    );
+    
+    console.log('✅ [VALIDAÇÃO] Formulário válido?', valido);
+    console.log('- CEP válido?', cep.replace(/\D/g, '').length === 8);
+    console.log('- Logradouro:', logradouro.trim());
+    console.log('- Número:', numero.trim());
+    console.log('- Bairro:', bairro.trim());
+    console.log('- Cidade:', cidade.trim());
+    console.log('- UF:', uf.trim());
+    
+    return valido;
+  };
+
+  const concluirCadastro = async () => {
+    if (!personalData || !validarFormulario()) {
+      Alert.alert('Atenção', 'Preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    console.log('🚀 [CADASTRO FINAL] Iniciando registro completo...');
+    
+    setCarregando(true);
+    try {
+      // Preparar dados completos para registro
+      const dadosCompletos = {
+        ...personalData,
+        cep: cep.replace(/\D/g, ''),
+        logradouro: logradouro.trim(),
+        numero: numero.trim(),
+        bairro: bairro.trim(),
+        cidade: cidade.trim(),
+        uf: uf.trim().toUpperCase(),
+        complemento: complemento.trim() || '',
+      };
+
+      console.log('📦 [CADASTRO FINAL] Dados completos para API:', {
+        nome: dadosCompletos.nome,
+        email: dadosCompletos.email,
+        cpfCnpj_limpo: dadosCompletos.cpfCnpj.replace(/\D/g, ''),
+        telefone_limpo: dadosCompletos.telefone.replace(/\D/g, ''),
+        dataNascimento: dadosCompletos.dataNascimento,
+        cep: dadosCompletos.cep,
+        logradouro: dadosCompletos.logradouro,
+        numero: dadosCompletos.numero,
+        bairro: dadosCompletos.bairro,
+        cidade: dadosCompletos.cidade,
+        uf: dadosCompletos.uf,
+        complemento: dadosCompletos.complemento,
+        senha: '***'
+      });
+
+      console.log('📡 [CADASTRO FINAL] Chamando API de registro...');
+      
+      const resultado = await register(dadosCompletos);
+      
+      console.log('✅ [CADASTRO FINAL] Registro realizado com sucesso!');
+      console.log('📨 [CADASTRO FINAL] Resposta da API:', resultado);
+      
+      // Verificar se temos um token na resposta
+      if (resultado?.token) {
+        console.log('🔑 [CADASTRO FINAL] Token recebido!');
+        console.log('🔑 [CADASTRO FINAL] Token:', resultado.token.substring(0, 20) + '...');
+        
+        // Redirecionar para home (usuário já está autenticado)
+        Alert.alert(
+          'Cadastro realizado!',
+          'Sua conta foi criada com sucesso.',
+          [{ 
+            text: 'OK', 
+            onPress: () => router.replace('/(tabs)')
+          }]
+        );
+      } else {
+        console.log('⚠️ [CADASTRO FINAL] Nenhum token recebido, redirecionando para verificação...');
+        
+        Alert.alert(
+          'Cadastro realizado!',
+          'Enviamos um código de verificação para seu email.',
+          [{ 
+            text: 'OK', 
+            onPress: () => router.push(`/auth/Cadastro/verificacao?email=${encodeURIComponent(dadosCompletos.email)}`)
+          }]
+        );
+      }
+      
+    } catch (error: any) {
+      console.error('❌ [CADASTRO FINAL] Erro no registro:', error);
+      console.error('❌ [CADASTRO FINAL] Erro message:', error.message);
+      console.error('❌ [CADASTRO FINAL] Erro stack:', error.stack);
+      
+      Alert.alert(
+        'Erro no cadastro',
+        error.message || 'Não foi possível completar o cadastro. Tente novamente.'
+      );
     } finally {
       setCarregando(false);
     }
   };
 
-  const podeEnviar = Boolean(
-    cep.length === 9 &&
-    rua &&
-    numero &&
-    bairro &&
-    cidade &&
-    estado
-  );
-
-  const finalizar = async () => {
-    if (!podeEnviar) return;
-
-    try {
-      await salvarEndereco({
-        cep,
-        rua,
-        numero,
-        complemento,
-        bairro,
-        cidade,
-        estado,
-      });
-      router.push('/auth/Cadastro/verificacao');
-    } catch (error) {
-      console.error('Erro ao salvar endereço:', error);
-    }
-  };
+  if (!personalData) {
+    console.log('⏳ [ENDEREÇO] Aguardando dados pessoais...');
+    return (
+      <View style={TelaEnderecoStyles.container}>
+        <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+        <Text style={{ marginTop: 10 }}>Carregando dados...</Text>
+      </View>
+    );
+  }
 
   const renderEstadoItem = (estadoItem: string) => (
     <TouchableOpacity
       key={estadoItem}
       style={TelaEnderecoStyles.estadoItem}
       onPress={() => {
-        setEstado(estadoItem);
+        setUf(estadoItem);
         setShowEstadoModal(false);
       }}
     >
       <Text
         style={[
           TelaEnderecoStyles.estadoText,
-          estado === estadoItem && TelaEnderecoStyles.selectedEstadoText,
+          uf === estadoItem && TelaEnderecoStyles.selectedEstadoText,
         ]}
       >
         {estadoItem}
       </Text>
-      {estado === estadoItem && (
+      {uf === estadoItem && (
         <Icon
           name="check"
           type="material"
@@ -127,14 +246,9 @@ export default function TelaEndereco() {
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-    >
-      <ScrollView
-        style={TelaEnderecoStyles.scrollView}
-        contentContainerStyle={{ flexGrow: 1 }}
+    <>
+      <ScrollView 
+        style={TelaEnderecoStyles.scrollView} 
         keyboardShouldPersistTaps="handled"
       >
         <View style={TelaEnderecoStyles.content}>
@@ -151,11 +265,11 @@ export default function TelaEndereco() {
                 color={theme.colors.gray700}
               />
             </TouchableOpacity>
-            <Text style={TelaEnderecoStyles.headerTitle}>Seu endereço</Text>
+            <Text style={TelaEnderecoStyles.headerTitle}>Endereço</Text>
           </View>
 
           <Text style={TelaEnderecoStyles.infoText}>
-            Informe seu endereço para entrega e localização dos anúncios
+            Informe seu endereço para entrega e localização
           </Text>
 
           {/* Formulário */}
@@ -167,42 +281,41 @@ export default function TelaEndereco() {
                 <TextInput
                   style={[
                     TelaEnderecoStyles.input,
-                    { flex: 1 },
                     focusedInput === 'cep' && TelaEnderecoStyles.focusedInput,
                   ]}
                   placeholder="00000-000"
                   value={cep}
-                  onChangeText={handleCep}
+                  onChangeText={handleCepChange}
                   keyboardType="numeric"
                   maxLength={9}
                   onFocus={() => setFocusedInput('cep')}
-                  onBlur={() => setFocusedInput(null)}
+                  onBlur={() => {
+                    setFocusedInput(null);
+                    if (cep.replace(/\D/g, '').length === 8) {
+                      buscarCEP();
+                    }
+                  }}
                 />
-                {carregando && (
+                {buscandoCep && (
                   <View style={TelaEnderecoStyles.loadingIcon}>
-                    <Icon
-                      name="refresh"
-                      type="ionicon"
-                      size={20}
-                      color={theme.colors.gray500}
-                    />
+                    <ActivityIndicator size="small" color={theme.colors.primary[500]} />
                   </View>
                 )}
               </View>
             </View>
 
-            {/* Rua */}
+            {/* Logradouro */}
             <View>
-              <Text style={TelaEnderecoStyles.inputLabel}>Rua</Text>
+              <Text style={TelaEnderecoStyles.inputLabel}>Logradouro</Text>
               <TextInput
                 style={[
                   TelaEnderecoStyles.input,
-                  focusedInput === 'rua' && TelaEnderecoStyles.focusedInput,
+                  focusedInput === 'logradouro' && TelaEnderecoStyles.focusedInput,
                 ]}
-                placeholder="Nome da rua"
-                value={rua}
-                onChangeText={setRua}
-                onFocus={() => setFocusedInput('rua')}
+                placeholder="Rua, Avenida, etc."
+                value={logradouro}
+                onChangeText={setLogradouro}
+                onFocus={() => setFocusedInput('logradouro')}
                 onBlur={() => setFocusedInput(null)}
               />
             </View>
@@ -257,77 +370,78 @@ export default function TelaEndereco() {
               />
             </View>
 
-            {/* Cidade e Estado */}
-            <View style={TelaEnderecoStyles.rowContainer}>
-              <View style={TelaEnderecoStyles.flex3}>
-                <Text style={TelaEnderecoStyles.inputLabel}>Cidade</Text>
-                <TextInput
-                  style={[
-                    TelaEnderecoStyles.input,
-                    focusedInput === 'cidade' && TelaEnderecoStyles.focusedInput,
-                  ]}
-                  placeholder="Nome da cidade"
-                  value={cidade}
-                  onChangeText={setCidade}
-                  onFocus={() => setFocusedInput('cidade')}
-                  onBlur={() => setFocusedInput(null)}
-                />
-              </View>
+            {/* Cidade */}
+            <View>
+              <Text style={TelaEnderecoStyles.inputLabel}>Cidade</Text>
+              <TextInput
+                style={[
+                  TelaEnderecoStyles.input,
+                  focusedInput === 'cidade' && TelaEnderecoStyles.focusedInput,
+                ]}
+                placeholder="Nome da cidade"
+                value={cidade}
+                onChangeText={setCidade}
+                onFocus={() => setFocusedInput('cidade')}
+                onBlur={() => setFocusedInput(null)}
+              />
+            </View>
 
-              <View style={TelaEnderecoStyles.flex2}>
-                <Text style={TelaEnderecoStyles.inputLabel}>Estado</Text>
-                <TouchableOpacity
+            {/* Estado */}
+            <View>
+              <Text style={TelaEnderecoStyles.inputLabel}>Estado (UF)</Text>
+              <TouchableOpacity
+                style={[
+                  TelaEnderecoStyles.estadoButton,
+                  focusedInput === 'uf' && TelaEnderecoStyles.focusedInput,
+                ]}
+                onPress={() => {
+                  setFocusedInput('uf');
+                  setShowEstadoModal(true);
+                }}
+              >
+                <Text
                   style={[
-                    TelaEnderecoStyles.estadoButton,
-                    focusedInput === 'estado' && TelaEnderecoStyles.focusedInput,
+                    TelaEnderecoStyles.estadoButtonText,
+                    !uf && TelaEnderecoStyles.estadoPlaceholderText,
                   ]}
-                  onPress={() => {
-                    setFocusedInput('estado');
-                    setShowEstadoModal(true);
-                  }}
-                  onBlur={() => setFocusedInput(null)}
                 >
-                  <Text
-                    style={[
-                      TelaEnderecoStyles.estadoButtonText,
-                      !estado && TelaEnderecoStyles.estadoPlaceholderText,
-                    ]}
-                  >
-                    {estado || 'UF'}
-                  </Text>
-                  <Icon
-                    name="keyboard-arrow-down"
-                    type="material"
-                    size={20}
-                    color={theme.colors.gray500}
-                  />
-                </TouchableOpacity>
-              </View>
+                  {uf || 'Selecione o estado'}
+                </Text>
+                <Icon
+                  name="keyboard-arrow-down"
+                  type="material"
+                  size={20}
+                  color={theme.colors.gray500}
+                />
+              </TouchableOpacity>
             </View>
 
             {/* Botão Finalizar */}
             <TouchableOpacity
               style={[
                 TelaEnderecoStyles.finalizarButton,
-                !podeEnviar && TelaEnderecoStyles.disabledButton,
+                (!validarFormulario() || carregando) && TelaEnderecoStyles.disabledButton,
               ]}
-              onPress={finalizar}
-              disabled={!podeEnviar}
+              onPress={concluirCadastro}
+              disabled={!validarFormulario() || carregando}
               activeOpacity={0.8}
             >
-              <Text
-                style={[
-                  TelaEnderecoStyles.finalizarButtonText,
-                  !podeEnviar && TelaEnderecoStyles.disabledButtonText,
-                ]}
-              >
-                Finalizar Cadastro
-              </Text>
+              {carregando ? (
+                <ActivityIndicator color={theme.colors.white} />
+              ) : (
+                <Text
+                  style={[
+                    TelaEnderecoStyles.finalizarButtonText,
+                    (!validarFormulario() || carregando) && TelaEnderecoStyles.disabledButtonText,
+                  ]}
+                >
+                  Concluir Cadastro
+                </Text>
+              )}
             </TouchableOpacity>
 
             <Text style={TelaEnderecoStyles.footerText}>
-              Seu endereço será usado para calcular fretes e mostrar anúncios
-              próximos a você.
+              Seu endereço será usado para calcular fretes e mostrar anúncios próximos a você.
             </Text>
           </View>
         </View>
@@ -358,6 +472,8 @@ export default function TelaEndereco() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </KeyboardAvoidingView>
+    </>
   );
-}
+};
+
+export default TelaEndereco;

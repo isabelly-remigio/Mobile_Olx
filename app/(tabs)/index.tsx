@@ -1,12 +1,13 @@
-// screens/HomeScreen.tsx
 import React, { useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
   FlatList,
+  Alert,
 } from 'react-native';
 import { Text, Icon } from '@rneui/themed';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/app/src/context/AuthContext';
 import Header from '../src/components/layout/Header';
 import NavCategorias from '../src/components/ui/NavCategorias';
 import BarraPesquisa from '../src/components/ui/BarraPesquisa';
@@ -19,8 +20,6 @@ import {
   Categoria,
   Banner,
   Produto,
-  Usuario,
-  Filtro,
 } from '../src/@types/home';
 
 // Categorias para os ícones
@@ -40,7 +39,6 @@ const banners: Banner[] = [
     imagem: 'https://images.unsplash.com/photo-1607082350899-7e105aa886ae?w=400&h=200&fit=crop',
   },
 ];
-
 
 const produtosDiversos: Produto[] = [
   // Celulares
@@ -106,14 +104,43 @@ const produtosDiversos: Produto[] = [
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [usuarioLogado, setUsuarioLogado] = useState<Usuario | null>(null);
+  const { user, signOut } = useAuth();
   const [categoriaAtiva, setCategoriaAtiva] = useState('tudo');
   const [produtosFiltrados, setProdutosFiltrados] = useState<Produto[]>(produtosDiversos);
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [buscando, setBuscando] = useState(false);
 
-  const simularLogin = () => {
-    setUsuarioLogado(usuarioLogado ? null : { nome: 'Maria' });
+  const handleToggleLogin = () => {
+    if (user) {
+      // Se está logado, mostrar opções
+      Alert.alert(
+        `Olá, ${user.nome}!`,
+        'O que você gostaria de fazer?',
+        [
+          { text: 'Ver Perfil', onPress: () => router.push('/(tabs)/perfil') },
+          { text: 'Favoritos', onPress: () => router.push('/(tabs)/favoritos') },
+          { text: 'Sair', onPress: signOut, style: 'destructive' },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+    } else {
+      // Se não está logado, redirecionar para login
+      router.push('/auth/Login/login');
+    }
+  };
+
+  const handleNotificacoes = () => {
+    if (!user) {
+      Alert.alert(
+        'Acesso restrito',
+        'Você precisa fazer login para ver notificações.',
+        [
+          { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+      return;
+    }
   };
 
   const handleSearch = useCallback((texto: string) => {
@@ -133,12 +160,39 @@ export default function HomeScreen() {
     setProdutosFiltrados(resultados);
   }, []);
 
-  const handleFiltrosChange = useCallback((filtros: Filtro) => {
+  const handleFiltrosChange = useCallback((filtros: any) => {
     console.log('Filtros aplicados:', filtros);
   }, []);
 
   const handleAbrirDetalhesAnuncio = (produtoId: string) => {
+    // Verificar se precisa de login para ver detalhes
+    if (!user) {
+      Alert.alert(
+        'Login necessário',
+        'Faça login para ver detalhes dos anúncios.',
+        [
+          { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+      return;
+    }
     router.push(`/(tabs)/anuncio/${produtoId}`);
+  };
+
+  const handleCarrosselClick = (banner: Banner) => {
+    if (!user) {
+      Alert.alert(
+        'Login necessário',
+        'Faça login para ver as ofertas.',
+        [
+          { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    alert(banner.titulo);
   };
 
   const renderProdutosVazios = () => (
@@ -175,9 +229,9 @@ export default function HomeScreen() {
   return (
     <View style={HomeScreenStyles.container}>
       <Header
-        usuarioLogado={usuarioLogado}
-        onToggleLogin={simularLogin}
-        onNotificacoes={() => alert('Notificações')}
+        usuarioLogado={user}
+        onToggleLogin={handleToggleLogin}
+        onNotificacoes={handleNotificacoes}
       />
 
       <BarraPesquisa
@@ -229,7 +283,7 @@ export default function HomeScreen() {
             {/* Carrossel */}
             <Carrossel
               banners={banners}
-              onClick={(banner) => alert(banner.titulo)}
+              onClick={handleCarrosselClick}
             />
 
             <View style={HomeScreenStyles.sectionContainer}>
@@ -262,8 +316,6 @@ export default function HomeScreen() {
           </ScrollView>
         )}
       </View>
-
-      
     </View>
   );
 }

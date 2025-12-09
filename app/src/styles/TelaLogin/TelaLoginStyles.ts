@@ -68,6 +68,20 @@ export default StyleSheet.create({
     color: theme.colors.gray900,
     fontFamily: theme.fonts.body,
   },
+
+
+// Adicione ao seu arquivo de estilos
+inputError: {
+  borderColor: '#EF4444', // vermelho
+  borderWidth: 2,
+},
+errorText: {
+  color: '#EF4444',
+  fontSize: 12,
+  marginTop: 4,
+  marginLeft: 4,
+},
+
   passwordHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

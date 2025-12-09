@@ -1,5 +1,4 @@
-// screens/TelaFavoritos.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,10 +7,12 @@ import {
   FlatList,
   Text,
   TouchableOpacity,
-  Animated,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Card, Image, Button, Icon } from '@rneui/themed';
-import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@/app/src/context/AuthContext';
 import { theme } from '../src/theme/theme';
 
 // Tipos
@@ -27,6 +28,8 @@ interface ProdutoFavorito {
 }
 
 const TelaFavoritos: React.FC = () => {
+  const router = useRouter();
+  const { user, loading } = useAuth();
   const [favoritos, setFavoritos] = useState<ProdutoFavorito[]>([
     {
       id: '1',
@@ -59,24 +62,58 @@ const TelaFavoritos: React.FC = () => {
     },
   ]);
 
+  // Verificar se o usuário está logado
+  useEffect(() => {
+    if (!loading && !user) {
+      Alert.alert(
+        'Acesso restrito',
+        'Faça login para acessar seus favoritos.',
+        [{ text: 'OK', onPress: () => router.push('/auth/Login/login') }]
+      );
+    }
+  }, [user, loading, router]);
+
   const removerFavorito = (id: string) => {
-    // Animação de remoção seria implementada aqui
     setFavoritos(favoritos.filter(item => item.id !== id));
   };
 
   const abrirDetalhes = (produto: ProdutoFavorito) => {
+    if (!user) {
+      Alert.alert(
+        'Login necessário',
+        'Faça login para ver detalhes dos anúncios.',
+        [
+          { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+      return;
+    }
     console.log('Abrindo detalhes:', produto.nome);
-    // Navegação para tela de detalhes
+    router.push(`/(tabs)/anuncio/${produto.id}`);
   };
 
   const explorarProdutos = () => {
-    console.log('Navegando para explorar produtos');
-    // Navegação para tela de explorar/home
+    router.push('/');
   };
 
   const formatarPreco = (valor: number) => {
     return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   };
+
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+      </View>
+    );
+  }
+
+  // Se não estiver logado, não renderizar nada (será redirecionado)
+  if (!user) {
+    return null;
+  }
 
   const renderCardFavorito = ({ item }: { item: ProdutoFavorito }) => (
     <TouchableOpacity 
@@ -114,7 +151,7 @@ const TelaFavoritos: React.FC = () => {
                 <Icon
                   name="location-on"
                   type="material"
-                  size={theme.iconSizes.localizacao}
+                  size={20}
                   color={theme.colors.gray500}
                 />
                 <Text style={styles.productLocation}>
@@ -133,7 +170,7 @@ const TelaFavoritos: React.FC = () => {
               <Icon
                 name="favorite"
                 type="material"
-                size={theme.iconSizes.favorito}
+                size={24}
                 color={theme.colors.error}
               />
             </TouchableOpacity>
@@ -212,6 +249,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.white,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: theme.colors.white,
+  },
   header: {
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.md,
@@ -221,11 +264,11 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: theme.typography.weights.semibold,
+    fontWeight: '600',
     color: theme.colors.gray900,
   },
   headerCount: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 14,
     color: theme.colors.gray600,
     marginTop: theme.spacing.xs,
   },
@@ -242,9 +285,13 @@ const styles = StyleSheet.create({
     padding: 0,
     margin: 0,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.sm,
     borderWidth: 1,
     borderColor: '#E6E6E6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cardContent: {
     flexDirection: 'row',
@@ -272,7 +319,7 @@ const styles = StyleSheet.create({
   destaqueText: {
     color: theme.colors.white,
     fontSize: 9,
-    fontWeight: theme.typography.weights.bold,
+    fontWeight: 'bold',
     letterSpacing: 0.5,
   },
   infoContainer: {
@@ -286,13 +333,13 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 15,
-    fontWeight: theme.typography.weights.medium,
+    fontWeight: '500',
     color: theme.colors.gray900,
     lineHeight: 20,
   },
   productPrice: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: theme.colors.black,
     marginTop: theme.spacing.xs,
   },
@@ -303,7 +350,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto',
   },
   productLocation: {
-    fontSize: theme.typography.sizes.sm,
+    fontSize: 14,
     color: theme.colors.gray600,
   },
   favoriteButton: {
@@ -316,7 +363,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.white,
     borderRadius: theme.borderRadius.full,
-    ...theme.shadows.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   
   // Empty State
@@ -339,14 +390,14 @@ const styles = StyleSheet.create({
     fontSize: 48,
   },
   emptyTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: theme.typography.weights.bold,
+    fontSize: 20,
+    fontWeight: 'bold',
     color: theme.colors.gray800,
     marginBottom: theme.spacing.sm,
     textAlign: 'center',
   },
   emptyText: {
-    fontSize: theme.typography.sizes.md,
+    fontSize: 16,
     color: theme.colors.gray600,
     textAlign: 'center',
     lineHeight: 22,
@@ -360,8 +411,8 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   exploreButtonText: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: theme.typography.weights.semibold,
+    fontSize: 16,
+    fontWeight: '600',
     marginLeft: theme.spacing.sm,
   },
 });

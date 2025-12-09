@@ -7,24 +7,51 @@ import {
   ScrollView, 
   KeyboardAvoidingView, 
   Platform,
-  Alert 
+  Alert,
+  ActivityIndicator
 } from 'react-native';
-import { Icon,Button } from '@rneui/themed';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Icon, Button } from '@rneui/themed';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/app/src/context/AuthContext';
 import styles from '@/app/src/styles/TelaLogin/TelaLoginStyles';
 
 const TelaLogin = () => {
   const router = useRouter();
+  const { signIn, loading } = useAuth();
+  
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [loginEmProgresso, setLoginEmProgresso] = useState(false);
 
   const validarEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const podeEntrar = () => validarEmail(email) && senha.length >= 1;
+  const podeEntrar = () => validarEmail(email) && senha.length >= 6;
 
   const voltar = () => router.back();
-  const entrar = () => podeEntrar() ? router.push('/(tabs)') : Alert.alert('Erro', 'Dados inválidos');
+
+  const entrar = async () => {
+    if (!podeEntrar()) {
+      Alert.alert('Erro', 'Por favor, preencha todos os campos corretamente.');
+      return;
+    }
+
+    setLoginEmProgresso(true);
+    try {
+      await signIn(email, senha);
+      // O redirecionamento para home será feito automaticamente pelo AuthContext
+      // ou pelo layout principal após o login bem-sucedido
+    } catch (error: any) {
+      // Mostrar mensagem de erro específica da API
+      Alert.alert(
+        'Erro no login',
+        error.message || 'Não foi possível fazer login. Verifique suas credenciais.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoginEmProgresso(false);
+    }
+  };
+
   const loginGoogle = () => Alert.alert('Info', 'Login com Google');
   const loginFacebook = () => Alert.alert('Info', 'Login com Facebook');
   const abrirTermos = () => Alert.alert('Info', 'Abrindo Termos de Uso...');
@@ -71,7 +98,10 @@ const TelaLogin = () => {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>E-mail</Text>
               <TextInput
-                style={styles.input}
+                style={[
+                  styles.input,
+                  email && !validarEmail(email) && styles.inputError
+                ]}
                 placeholder="seu@email.com"
                 placeholderTextColor="#9CA3AF"
                 value={email}
@@ -80,6 +110,9 @@ const TelaLogin = () => {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+              {email && !validarEmail(email) && (
+                <Text style={styles.errorText}>E-mail inválido</Text>
+              )}
             </View>
 
             <View style={styles.inputGroup}>
@@ -91,7 +124,10 @@ const TelaLogin = () => {
               </View>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={styles.passwordInput}
+                  style={[
+                    styles.passwordInput,
+                    senha.length > 0 && senha.length < 6 && styles.inputError
+                  ]}
                   placeholder="Sua senha"
                   placeholderTextColor="#9CA3AF"
                   value={senha}
@@ -110,16 +146,20 @@ const TelaLogin = () => {
                   />
                 </TouchableOpacity>
               </View>
+              {senha.length > 0 && senha.length < 6 && (
+                <Text style={styles.errorText}>A senha deve ter pelo menos 6 caracteres</Text>
+              )}
             </View>
 
             <Button
-              title="Entrar"
+              title={loginEmProgresso ? "Entrando..." : "Entrar"}
               buttonStyle={[styles.loginButton, !podeEntrar() && styles.disabledButton]}
               titleStyle={styles.loginButtonText}
               onPress={entrar}
-              disabled={!podeEntrar()}
+              disabled={!podeEntrar() || loginEmProgresso || loading}
               disabledStyle={styles.disabledButton}
               disabledTitleStyle={styles.disabledText}
+              icon={loginEmProgresso ? <ActivityIndicator color="#FFFFFF" size="small" /> : undefined}
             />
           </View>
 

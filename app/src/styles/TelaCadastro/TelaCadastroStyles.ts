@@ -24,6 +24,8 @@ export const TelaCadastroStyles = StyleSheet.create({
     gap: theme.spacing.md,
     paddingTop: theme.spacing.md,
   },
+
+  
   
   backButton: {
     padding: theme.spacing.xs,
@@ -235,6 +237,12 @@ export const TelaCadastroStyles = StyleSheet.create({
   validationText: {
     fontSize: theme.typography.sizes.xs,
     fontFamily: theme.fonts.body,
+  },
+  
+
+    errorInput: {
+    borderColor: theme.colors.error,
+    borderWidth: 2,
   },
   
   registerButton: {

@@ -1,4 +1,3 @@
-// screens/auth/Cadastro/TelaCadastro.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -9,6 +8,7 @@ import {
   Platform,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Icon } from '@rneui/themed';
 import { useRouter } from 'expo-router';
@@ -18,12 +18,14 @@ import { theme } from '@/app/src/theme/theme';
 
 const TelaCadastro = () => {
   const router = useRouter();
-  const { salvarDadosPessoais } = useAuth();
+  const { savePersonalData } = useAuth();
 
   const [nome, setNome] = useState('');
   const [tipoConta, setTipoConta] = useState('fisica');
-  const [cpf, setCpf] = useState('');
+  const [documento, setDocumento] = useState('');
   const [email, setEmail] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [dataNascimento, setDataNascimento] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -32,14 +34,54 @@ const TelaCadastro = () => {
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   // -----------------------------
-  // Funções utilitárias
+  // Funções de formatação
   // -----------------------------
-  const formatarCPF = (v: string) =>
-    v
-      .replace(/\D/g, '')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d)/, '$1.$2')
-      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  const formatarDocumento = (valor: string) => {
+    const apenasNumeros = valor.replace(/\D/g, '');
+    
+    if (tipoConta === 'fisica') {
+      return apenasNumeros
+        .slice(0, 11)
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+    } else {
+      return apenasNumeros
+        .slice(0, 14)
+        .replace(/(\d{2})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1/$2')
+        .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+    }
+  };
+
+  const formatarTelefone = (valor: string) => {
+    const apenasNumeros = valor.replace(/\D/g, '');
+    
+    if (apenasNumeros.length <= 10) {
+      return apenasNumeros
+        .slice(0, 10)
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+    } else {
+      return apenasNumeros
+        .slice(0, 11)
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2');
+    }
+  };
+
+  const formatarDataNascimento = (valor: string) => {
+    const apenasNumeros = valor.replace(/\D/g, '');
+    return apenasNumeros
+      .slice(0, 8)
+      .replace(/(\d{2})(\d)/, '$1/$2')
+      .replace(/(\d{2})(\d)/, '$1/$2');
+  };
+
+  React.useEffect(() => {
+    setDocumento('');
+  }, [tipoConta]);
 
   const validarEmail = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -60,10 +102,37 @@ const TelaCadastro = () => {
         ? { valida: true, mensagem: 'Senhas coincidem!' }
         : { valida: false, mensagem: 'As senhas não coincidem.' };
 
+  const validarDocumento = () => {
+    const apenasNumeros = documento.replace(/\D/g, '');
+    
+    if (tipoConta === 'fisica') {
+      return apenasNumeros.length === 11;
+    } else {
+      return apenasNumeros.length === 14;
+    }
+  };
+
+  const validarTelefone = () => {
+    const apenasNumeros = telefone.replace(/\D/g, '');
+    return apenasNumeros.length === 10 || apenasNumeros.length === 11;
+  };
+
+  const validarDataNascimento = () => {
+    if (!dataNascimento) return false;
+    const partes = dataNascimento.split('/');
+    if (partes.length !== 3) return false;
+    
+    const [dia, mes, ano] = partes;
+    const data = new Date(`${ano}-${mes}-${dia}`);
+    return data instanceof Date && !isNaN(data.getTime());
+  };
+
   const podeEnviar = () =>
     nome.trim() &&
-    cpf.length >= 14 &&
+    validarDocumento() &&
     validarEmail(email) &&
+    validarTelefone() &&
+    validarDataNascimento() &&
     senha.length >= 6 &&
     senha === confirmarSenha;
 
@@ -73,12 +142,44 @@ const TelaCadastro = () => {
   const cadastrar = async () => {
     if (!podeEnviar()) return;
 
+    console.log('📝 [CADASTRO] Iniciando processo de cadastro...');
+    console.log('📝 [CADASTRO] Dados coletados:');
+    console.log('- Nome:', nome);
+    console.log('- Email:', email);
+    console.log('- CPF/CNPJ:', documento);
+    console.log('- Telefone:', telefone);
+    console.log('- Data Nascimento:', dataNascimento);
+
     setCarregando(true);
     try {
-      salvarDadosPessoais({ nome, tipoConta, cpf, email, senha });
+      // Converter data de DD/MM/AAAA para AAAA-MM-DD
+      const [dia, mes, ano] = dataNascimento.split('/');
+      const dataNascimentoFormatada = `${ano}-${mes}-${dia}`;
+
+      const dadosPessoais = { 
+        nome, 
+        email,
+        senha,
+        cpfCnpj: documento,
+        telefone: telefone,
+        dataNascimento: dataNascimentoFormatada
+      };
+
+      console.log('💾 [CADASTRO] Salvando dados pessoais no contexto...');
+      console.log('💾 [CADASTRO] Dados formatados para envio:', {
+        ...dadosPessoais,
+        senha: '***'
+      });
+
+      savePersonalData(dadosPessoais);
+      
+      console.log('✅ [CADASTRO] Dados salvos com sucesso!');
+      console.log('➡️ [CADASTRO] Redirecionando para tela de endereço...');
+      
       router.push('/auth/Cadastro/endereco');
     } catch (error) {
-      console.error('Erro ao cadastrar:', error);
+      console.error('❌ [CADASTRO] Erro ao salvar dados:', error);
+      Alert.alert('Erro', 'Não foi possível salvar os dados. Tente novamente.');
     } finally {
       setCarregando(false);
     }
@@ -214,22 +315,40 @@ const TelaCadastro = () => {
               </View>
             </View>
 
-            {/* CPF */}
+            {/* CPF/CNPJ */}
             <View>
-              <Text style={TelaCadastroStyles.inputLabel}>CPF</Text>
+              <Text style={TelaCadastroStyles.inputLabel}>
+                {tipoConta === 'fisica' ? 'CPF' : 'CNPJ'}
+              </Text>
               <TextInput
                 style={[
                   TelaCadastroStyles.input,
-                  focusedInput === 'cpf' && TelaCadastroStyles.focusedInput,
+                  focusedInput === 'documento' && TelaCadastroStyles.focusedInput,
+                  !validarDocumento() && documento && TelaCadastroStyles.errorInput,
                 ]}
-                placeholder="000.000.000-00"
-                value={cpf}
-                onChangeText={(v) => setCpf(formatarCPF(v))}
+                placeholder={tipoConta === 'fisica' ? "000.000.000-00" : "00.000.000/0000-00"}
+                value={documento}
+                onChangeText={(v) => setDocumento(formatarDocumento(v))}
                 keyboardType="numeric"
-                maxLength={14}
-                onFocus={() => setFocusedInput('cpf')}
+                maxLength={tipoConta === 'fisica' ? 14 : 18}
+                onFocus={() => setFocusedInput('documento')}
                 onBlur={() => setFocusedInput(null)}
               />
+              {documento && !validarDocumento() && (
+                <View style={TelaCadastroStyles.validationContainer}>
+                  <Icon
+                    name="error"
+                    type="material"
+                    size={16}
+                    color={theme.colors.error}
+                  />
+                  <Text style={[TelaCadastroStyles.validationText, { color: theme.colors.error }]}>
+                    {tipoConta === 'fisica' 
+                      ? 'CPF inválido (11 dígitos necessários)' 
+                      : 'CNPJ inválido (14 dígitos necessários)'}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Email */}
@@ -239,6 +358,7 @@ const TelaCadastro = () => {
                 style={[
                   TelaCadastroStyles.input,
                   focusedInput === 'email' && TelaCadastroStyles.focusedInput,
+                  !validarEmail(email) && email && TelaCadastroStyles.errorInput,
                 ]}
                 placeholder="seuemail@exemplo.com"
                 value={email}
@@ -248,6 +368,89 @@ const TelaCadastro = () => {
                 onFocus={() => setFocusedInput('email')}
                 onBlur={() => setFocusedInput(null)}
               />
+              {email && !validarEmail(email) && (
+                <View style={TelaCadastroStyles.validationContainer}>
+                  <Icon
+                    name="error"
+                    type="material"
+                    size={16}
+                    color={theme.colors.error}
+                  />
+                  <Text style={[TelaCadastroStyles.validationText, { color: theme.colors.error }]}>
+                    E-mail inválido
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Telefone */}
+            <View>
+              <Text style={TelaCadastroStyles.inputLabel}>Telefone</Text>
+              <TextInput
+                style={[
+                  TelaCadastroStyles.input,
+                  focusedInput === 'telefone' && TelaCadastroStyles.focusedInput,
+                  !validarTelefone() && telefone && TelaCadastroStyles.errorInput,
+                ]}
+                placeholder="(00) 00000-0000"
+                value={telefone}
+                onChangeText={(v) => setTelefone(formatarTelefone(v))}
+                keyboardType="phone-pad"
+                maxLength={15}
+                onFocus={() => setFocusedInput('telefone')}
+                onBlur={() => setFocusedInput(null)}
+              />
+              {telefone && !validarTelefone() && (
+                <View style={TelaCadastroStyles.validationContainer}>
+                  <Icon
+                    name="error"
+                    type="material"
+                    size={16}
+                    color={theme.colors.error}
+                  />
+                  <Text style={[TelaCadastroStyles.validationText, { color: theme.colors.error }]}>
+                    Telefone inválido (10 ou 11 dígitos)
+                  </Text>
+                </View>
+              )}
+              <Text style={TelaCadastroStyles.helperText}>
+                Usaremos para contato sobre suas compras e vendas
+              </Text>
+            </View>
+
+            {/* Data de Nascimento */}
+            <View>
+              <Text style={TelaCadastroStyles.inputLabel}>Data de Nascimento</Text>
+              <TextInput
+                style={[
+                  TelaCadastroStyles.input,
+                  focusedInput === 'dataNascimento' && TelaCadastroStyles.focusedInput,
+                  !validarDataNascimento() && dataNascimento && TelaCadastroStyles.errorInput,
+                ]}
+                placeholder="DD/MM/AAAA"
+                value={dataNascimento}
+                onChangeText={(v) => setDataNascimento(formatarDataNascimento(v))}
+                keyboardType="numeric"
+                maxLength={10}
+                onFocus={() => setFocusedInput('dataNascimento')}
+                onBlur={() => setFocusedInput(null)}
+              />
+              {dataNascimento && !validarDataNascimento() && (
+                <View style={TelaCadastroStyles.validationContainer}>
+                  <Icon
+                    name="error"
+                    type="material"
+                    size={16}
+                    color={theme.colors.error}
+                  />
+                  <Text style={[TelaCadastroStyles.validationText, { color: theme.colors.error }]}>
+                    Data inválida (DD/MM/AAAA)
+                  </Text>
+                </View>
+              )}
+              <Text style={TelaCadastroStyles.helperText}>
+                Para verificação de idade
+              </Text>
             </View>
 
             {/* Senha */}
@@ -369,7 +572,7 @@ const TelaCadastro = () => {
                     (!podeEnviar() || carregando) && TelaCadastroStyles.disabledButtonText,
                   ]}
                 >
-                  {carregando ? 'Salvando...' : 'Cadastrar-se'}
+                  {carregando ? 'Salvando...' : 'Continuar'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -377,7 +580,7 @@ const TelaCadastro = () => {
             {/* Link para login */}
             <View style={TelaCadastroStyles.loginLinkContainer}>
               <Text style={TelaCadastroStyles.loginText}>Já tem uma conta? </Text>
-              <TouchableOpacity onPress={() => router.push('/auth/login')}>
+              <TouchableOpacity onPress={() => router.push('/auth/Login/login')}>
                 <Text style={TelaCadastroStyles.loginLink}>Entrar</Text>
               </TouchableOpacity>
             </View>
