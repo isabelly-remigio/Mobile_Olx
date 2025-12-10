@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   ScrollView,
   FlatList,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Text, Icon } from '@rneui/themed';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,8 @@ import Carrossel from '../src/components/ui/Carrossel';
 import CardProduto from '../src/components/ui/CardProduto';
 import { HomeScreenStyles } from '../src/styles/HomeScreenStyles';
 import { theme } from '../src/theme/theme';
+// Importe atualizado
+import { produtoService, CATEGORIAS_FRONTEND, FiltrosProduto } from '../src/services/produtoService';
 
 import {
   Categoria,
@@ -22,14 +25,12 @@ import {
   Produto,
 } from '../src/@types/home';
 
-// Categorias para os ícones
-const categorias: Categoria[] = [
-  { id: 'tudo', nome: 'Tudo', icone: 'apps' },
-  { id: 'celulares', nome: 'Celulares', icone: 'smartphone' },
-  { id: 'eletrodomesticos', nome: 'Eletro', icone: 'kitchen' },
-  { id: 'casa', nome: 'Casa', icone: 'home' },
-  { id: 'moda', nome: 'Moda', icone: 'checkroom' },
-];
+// Categorias para os ícones - agora usando do serviço
+const categorias: Categoria[] = CATEGORIAS_FRONTEND.map(cat => ({
+  id: cat.id,
+  nome: cat.nome,
+  icone: cat.icone
+}));
 
 const banners: Banner[] = [
   {
@@ -40,79 +41,134 @@ const banners: Banner[] = [
   },
 ];
 
-const produtosDiversos: Produto[] = [
-  // Celulares
-  {
-    id: '1',
-    imagem: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=170&h=100&fit=crop',
-    titulo: 'iPhone 13 Pro Max',
-    descricao: '256GB, perfeito estado',
-    preco: 4500,
-    localizacao: 'Boa Viagem, PE',
-    destaque: true,
-  },
-  // Eletrodomésticos
-  {
-    id: '2',
-    imagem: 'https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?w=170&h=100&fit=crop',
-    titulo: 'Geladeira Brastemp',
-    descricao: '375L, seminova',
-    preco: 1200,
-    localizacao: 'Rio de Janeiro, RJ',
-    destaque: false,
-  },
-  // Moda
-  {
-    id: '3',
-    imagem: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=170&h=100&fit=crop',
-    titulo: 'Tênis Nike Air Max',
-    descricao: 'Número 42, original',
-    preco: 250,
-    localizacao: 'Curitiba, PR',
-    destaque: false,
-  },
-  // Eletrônicos
-  {
-    id: '4',
-    imagem: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=170&h=100&fit=crop',
-    titulo: 'Notebook Dell Inspiron',
-    descricao: 'i5, 8GB, SSD 256GB',
-    preco: 2200,
-    localizacao: 'São Paulo, SP',
-    destaque: true,
-  },
-  // Casa
-  {
-    id: '5',
-    imagem: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=170&h=100&fit=crop',
-    titulo: 'Sofá 3 lugares',
-    descricao: 'Estofado novo',
-    preco: 800,
-    localizacao: 'Belo Horizonte, MG',
-    destaque: true,
-  },
-  {
-    id: '6',
-    imagem: 'https://images.unsplash.com/photo-1536922246289-88c42f957773?w=170&h=100&fit=crop',
-    titulo: 'Bicicleta Caloi Aro 29',
-    descricao: '18 marchas, suspensão',
-    preco: 900,
-    localizacao: 'Curitiba, PR',
-    destaque: false,
-  },
-];
-
 export default function HomeScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [categoriaAtiva, setCategoriaAtiva] = useState('tudo');
-  const [produtosFiltrados, setProdutosFiltrados] = useState<Produto[]>(produtosDiversos);
+  const [produtosFiltrados, setProdutosFiltrados] = useState<Produto[]>([]);
+  const [produtosDiversos, setProdutosDiversos] = useState<Produto[]>([]);
   const [termoPesquisa, setTermoPesquisa] = useState('');
   const [buscando, setBuscando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+  const [filtrosAtivos, setFiltrosAtivos] = useState<FiltrosProduto>({});
+
+  // Carregar produtos ao iniciar
+  useEffect(() => {
+    carregarProdutos();
+  }, []);
+
+  // ATUALIZE ESTA FUNÇÃO - Quando a categoria muda, busca produtos
+  const handleChangeCategoria = async (categoriaId: string) => {
+    setCategoriaAtiva(categoriaId);
+    
+    // Se for "tudo", mostra todos os produtos
+    if (categoriaId === 'tudo') {
+      if (Object.keys(filtrosAtivos).length === 0 && !termoPesquisa.trim()) {
+        setProdutosFiltrados(produtosDiversos);
+      } else {
+        // Aplica filtros existentes
+        await aplicarFiltros();
+      }
+      return;
+    }
+    
+    // Para outras categorias, busca da API
+    await buscarProdutosPorCategoria(categoriaId);
+  };
+
+  // Função para buscar produtos por categoria
+  const buscarProdutosPorCategoria = async (categoriaId: string) => {
+    try {
+      setCarregando(true);
+      const produtos = await produtoService.buscarPorCategoria(categoriaId);
+      setProdutosFiltrados(produtos);
+    } catch (error) {
+      console.error('Erro ao buscar por categoria:', error);
+      
+      // Fallback: mostra mensagem
+      Alert.alert(
+        'Erro',
+        'Não foi possível carregar produtos desta categoria.',
+        [{ text: 'OK' }]
+      );
+      
+      // Volta para "tudo"
+      setCategoriaAtiva('tudo');
+      setProdutosFiltrados(produtosDiversos);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  // Função para aplicar filtros (mantém a existente)
+  const aplicarFiltros = async () => {
+    try {
+      setCarregando(true);
+      
+      let resultados: Produto[] = [];
+      
+      // Se tem categoria ativa (não é "tudo") OU tem outros filtros
+      if (categoriaAtiva !== 'tudo' || Object.keys(filtrosAtivos).length > 0) {
+        // Cria filtros combinados
+        const filtrosCombinados: FiltrosProduto = { ...filtrosAtivos };
+        
+        // Adiciona categoria se não for "tudo"
+        if (categoriaAtiva !== 'tudo') {
+          const categoria = CATEGORIAS_FRONTEND.find(cat => cat.id === categoriaAtiva);
+          if (categoria?.backendValue) {
+            filtrosCombinados.categoria = categoria.backendValue;
+          }
+        }
+        
+        // Se tem termo de pesquisa, usa pesquisa avançada
+        if (termoPesquisa.trim()) {
+          filtrosCombinados.termo = termoPesquisa;
+          resultados = await produtoService.pesquisarAvancado(filtrosCombinados);
+        } 
+        // Se não tem termo mas tem filtros, também usa pesquisa avançada
+        else if (Object.keys(filtrosCombinados).length > 0) {
+          resultados = await produtoService.pesquisarAvancado(filtrosCombinados);
+        }
+        // Se só tem categoria ativa (sem outros filtros), usa rota específica
+        else if (categoriaAtiva !== 'tudo') {
+          resultados = await produtoService.buscarPorCategoria(categoriaAtiva);
+        }
+      } else {
+        // Sem filtros nem categoria específica, mostra tudo
+        resultados = produtosDiversos;
+      }
+      
+      setProdutosFiltrados(resultados);
+    } catch (error) {
+      console.error('Erro ao aplicar filtros:', error);
+      Alert.alert('Erro', 'Não foi possível aplicar os filtros');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const carregarProdutos = async () => {
+    try {
+      setCarregando(true);
+      setErro(null);
+      const produtos = await produtoService.listarTodosAtivos();
+      setProdutosDiversos(produtos);
+      setProdutosFiltrados(produtos);
+    } catch (error) {
+      setErro('Erro ao carregar produtos. Tente novamente.');
+      console.error('Erro ao carregar produtos:', error);
+      
+      // Dados de fallback para desenvolvimento
+      setProdutosDiversos(getProdutosFallback());
+      setProdutosFiltrados(getProdutosFallback());
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   const handleToggleLogin = () => {
     if (user) {
-      // Se está logado, mostrar opções
       Alert.alert(
         `Olá, ${user.nome}!`,
         'O que você gostaria de fazer?',
@@ -124,7 +180,6 @@ export default function HomeScreen() {
         ]
       );
     } else {
-      // Se não está logado, redirecionar para login
       router.push('/auth/Login/login');
     }
   };
@@ -141,31 +196,66 @@ export default function HomeScreen() {
       );
       return;
     }
+    
+    Alert.alert(
+      'Notificações',
+      'Você não tem novas notificações no momento.',
+      [{ text: 'OK' }]
+    );
   };
 
-  const handleSearch = useCallback((texto: string) => {
+  const handleSearch = useCallback(async (texto: string) => {
     setTermoPesquisa(texto);
     setBuscando(!!texto.trim());
 
-    if (!texto.trim()) {
+    if (!texto.trim() && Object.keys(filtrosAtivos).length === 0 && categoriaAtiva === 'tudo') {
       setProdutosFiltrados(produtosDiversos);
       return;
     }
 
-    const resultados = produtosDiversos.filter(
-      (produto) =>
-        produto.titulo.toLowerCase().includes(texto.toLowerCase()) ||
-        produto.descricao.toLowerCase().includes(texto.toLowerCase())
-    );
-    setProdutosFiltrados(resultados);
-  }, []);
+    try {
+      let resultados: Produto[] = [];
+      
+      if (texto.trim()) {
+        // Se tem filtros ativos, usa pesquisa avançada
+        if (Object.keys(filtrosAtivos).length > 0 || categoriaAtiva !== 'tudo') {
+          const filtrosCombinados: FiltrosProduto = {
+            termo: texto,
+            ...filtrosAtivos
+          };
+          
+          // Adiciona categoria se não for "tudo"
+          if (categoriaAtiva !== 'tudo') {
+            const categoria = CATEGORIAS_FRONTEND.find(cat => cat.id === categoriaAtiva);
+            if (categoria?.backendValue) {
+              filtrosCombinados.categoria = categoria.backendValue;
+            }
+          }
+          
+          resultados = await produtoService.pesquisarAvancado(filtrosCombinados);
+        } else {
+          // Pesquisa simples
+          resultados = await produtoService.pesquisarProdutos(texto);
+        }
+      } else {
+        // Sem texto, aplica apenas os filtros existentes
+        await aplicarFiltros();
+        return;
+      }
+      
+      setProdutosFiltrados(resultados);
+    } catch (error) {
+      console.error('Erro na pesquisa:', error);
+      Alert.alert('Erro', 'Não foi possível realizar a pesquisa');
+    }
+  }, [produtosDiversos, filtrosAtivos, categoriaAtiva]);
 
-  const handleFiltrosChange = useCallback((filtros: any) => {
-    console.log('Filtros aplicados:', filtros);
+  const handleFiltrosChange = useCallback(async (filtros: FiltrosProduto) => {
+    setFiltrosAtivos(filtros);
+    // A aplicação dos filtros será feita no useEffect
   }, []);
 
   const handleAbrirDetalhesAnuncio = (produtoId: string) => {
-    // Verificar se precisa de login para ver detalhes
     if (!user) {
       Alert.alert(
         'Login necessário',
@@ -177,6 +267,7 @@ export default function HomeScreen() {
       );
       return;
     }
+    
     router.push(`/(tabs)/anuncio/${produtoId}`);
   };
 
@@ -194,7 +285,6 @@ export default function HomeScreen() {
     }
     alert(banner.titulo);
   };
-
   const renderProdutosVazios = () => (
     <View style={HomeScreenStyles.emptyStateContainer}>
       <Icon
@@ -224,10 +314,60 @@ export default function HomeScreen() {
     </View>
   );
 
+  // Produtos em destaque (filtrando da lista geral)
   const produtosEmDestaque = produtosDiversos.filter((p) => p.destaque);
 
+  // Tela de loading
+  if (carregando && !buscando) {
+    return (
+      <View style={HomeScreenStyles.container}>
+        <Header
+          usuarioLogado={user}
+          onToggleLogin={handleToggleLogin}
+          onNotificacoes={handleNotificacoes}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={{ marginTop: 10, color: theme.colors.gray600 }}>
+            Carregando produtos...
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Tela de erro
+  if (erro && produtosDiversos.length === 0) {
+    return (
+      <View style={HomeScreenStyles.container}>
+        <Header
+          usuarioLogado={user}
+          onToggleLogin={handleToggleLogin}
+          onNotificacoes={handleNotificacoes}
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Icon
+            name="error-outline"
+            type="material"
+            size={64}
+            color={theme.colors.error}
+          />
+          <Text style={{ marginTop: 10, textAlign: 'center', color: theme.colors.error }}>
+            {erro}
+          </Text>
+          <Text
+            style={{ marginTop: 20, color: theme.colors.primary, textDecorationLine: 'underline' }}
+            onPress={carregarProdutos}
+          >
+            Tentar novamente
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={HomeScreenStyles.container}>
+      <View style={HomeScreenStyles.container}>
       <Header
         usuarioLogado={user}
         onToggleLogin={handleToggleLogin}
@@ -242,10 +382,13 @@ export default function HomeScreen() {
         mostrarResultadosVazios={buscando && produtosFiltrados.length === 0}
       />
 
+      {/* MUDANÇA AQUI: Use handleChangeCategoria em vez de setCategoriaAtiva */}
       <NavCategorias
         categorias={categorias}
         ativa={categoriaAtiva}
-        onChangeCategoria={setCategoriaAtiva}
+        onChangeCategoria={handleChangeCategoria} // ← TROCAR AQUI
+        carregando={carregando && !buscando} // Passa o estado de carregando
+
       />
 
       <View style={HomeScreenStyles.content}>
@@ -318,4 +461,37 @@ export default function HomeScreen() {
       </View>
     </View>
   );
+}
+
+// Função de fallback para desenvolvimento
+function getProdutosFallback(): Produto[] {
+  return [
+    {
+      id: '1',
+      imagem: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=170&h=100&fit=crop',
+      titulo: 'iPhone 13 Pro Max',
+      descricao: '256GB, perfeito estado',
+      preco: 4500,
+      localizacao: 'Boa Viagem, PE',
+      destaque: true,
+    },
+    {
+      id: '2',
+      imagem: 'https://images.unsplash.com/photo-1571175443880-49e1d25b2bc5?w=170&h=100&fit=crop',
+      titulo: 'Geladeira Brastemp',
+      descricao: '375L, seminova',
+      preco: 1200,
+      localizacao: 'Rio de Janeiro, RJ',
+      destaque: false,
+    },
+    {
+      id: '3',
+      imagem: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=170&h=100&fit=crop',
+      titulo: 'Tênis Nike Air Max',
+      descricao: 'Número 42, original',
+      preco: 250,
+      localizacao: 'Curitiba, PR',
+      destaque: false,
+    },
+  ];
 }

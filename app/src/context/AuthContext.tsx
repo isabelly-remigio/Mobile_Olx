@@ -119,6 +119,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+  try {
+    setLoading(true);
+    
+    const response = await fetch(`${API_URL}/auth/esqueci-senha`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase().trim(),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Erro ao solicitar redefinição de senha');
+    }
+
+    return { success: true, message: data.message || 'E-mail enviado com sucesso' };
+
+  } catch (error: any) {
+    return { success: false, message: error.message || 'Erro desconhecido' };
+  } finally {
+    setLoading(false);
+  }
+};
+
+
   // Função para lidar com erros da API
   const handleApiError = async (response: Response) => {
     const data = await response.json();

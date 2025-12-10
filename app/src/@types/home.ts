@@ -21,14 +21,21 @@ export interface Banner {
 
 
 export interface Produto {
-  id: string; // Adicionar id
-  imagem: string;
+  id: string;
   titulo: string;
   descricao: string;
   preco: number;
   localizacao: string;
-  destaque?: boolean;
-  favoritado?: boolean;
+  destaque: boolean;
+  imagem: string;
+  categoria?: string;
+  condicao?: string;
+  dataPublicacao?: string;
+  vendedor?: {
+    id?: number;
+    nome: string;
+    telefone?: string;
+  };
 }
 
 export interface Usuario {

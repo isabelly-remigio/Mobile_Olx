@@ -1,4 +1,3 @@
-// components/ModalFiltros.tsx
 import React, { useState } from 'react';
 import {
   Modal,
@@ -15,8 +14,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { ModalFiltrosProps, Filtro, Estado } from '../../@types/home';
 import { Button, ListItem } from '@rneui/themed';
 import { styles, constants } from '../../styles/components/ModalFiltrosStyles';
+// Importe do serviço
+import { produtoService, CATEGORIAS_FRONTEND, ESTADOS_BRASILEIROS } from '../../services/produtoService';
+
 const { height } = Dimensions.get('window');
-const { ESTADOS_BRASILEIROS, CATEGORIAS_FIXAS } = constants;
 
 const ModalFiltros: React.FC<ModalFiltrosProps> = ({
   isOpen,
@@ -52,7 +53,17 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
       precoMin: precoMinInput ? parseFloat(precoMinInput) : undefined,
       precoMax: precoMaxInput ? parseFloat(precoMaxInput) : undefined,
     };
-    onAplicarFiltros(filtrosFormatados);
+    
+    // Transformar os filtros para o formato do backend
+    const filtrosBackend = {
+      termo: filtrosFormatados.termo,
+      categoria: filtrosFormatados.categoria, // Já está no formato correto
+      precoMin: filtrosFormatados.precoMin,
+      precoMax: filtrosFormatados.precoMax,
+      uf: filtrosFormatados.estado // Mapeia estado para uf
+    };
+    
+    onAplicarFiltros(filtrosBackend);
     onClose();
   };
 
@@ -68,12 +79,16 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
   };
 
   const selecionarCategoria = (categoriaId: string) => {
-    setFiltros(prev => ({ ...prev, categoria: categoriaId }));
+    // Encontra a categoria e pega o valor do backend
+    const categoria = CATEGORIAS_FRONTEND.find(cat => cat.id === categoriaId);
+    if (categoria) {
+      setFiltros(prev => ({ ...prev, categoria: categoria.backendValue }));
+    }
     setShowCategorias(false);
   };
 
   const estadoSelecionado = ESTADOS_BRASILEIROS.find(e => e.sigla === filtros.estado);
-  const categoriaSelecionada = CATEGORIAS_FIXAS.find(c => c.id === filtros.categoria);
+  const categoriaSelecionada = CATEGORIAS_FRONTEND.find(c => c.backendValue === filtros.categoria);
 
   const renderItemEstado = ({ item }: { item: Estado }) => (
     <ListItem onPress={() => selecionarEstado(item)} bottomDivider>
@@ -86,7 +101,7 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
     </ListItem>
   );
 
-  const renderItemCategoria = ({ item }: { item: typeof CATEGORIAS_FIXAS[0] }) => (
+  const renderItemCategoria = ({ item }: { item: typeof CATEGORIAS_FRONTEND[0] }) => (
     <ListItem onPress={() => selecionarCategoria(item.id)} bottomDivider>
       <MaterialIcons 
         name={item.icone as any} 
@@ -97,7 +112,7 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
       <ListItem.Content>
         <ListItem.Title>{item.nome}</ListItem.Title>
       </ListItem.Content>
-      {filtros.categoria === item.id && (
+      {filtros.categoria === item.backendValue && (
         <MaterialIcons name="check" size={24} color={constants.COLORS.primary} />
       )}
     </ListItem>
@@ -256,7 +271,7 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
             </TouchableOpacity>
           </View>
           <FlatList
-            data={CATEGORIAS_FIXAS}
+            data={CATEGORIAS_FRONTEND.filter(cat => cat.id !== 'tudo')} // Remove "Tudo" da lista
             keyExtractor={(item) => item.id}
             renderItem={renderItemCategoria}
             showsVerticalScrollIndicator={false}

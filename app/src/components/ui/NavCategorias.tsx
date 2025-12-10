@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { Icon } from '@rneui/themed';
 import { Categoria } from '../../@types/home';
@@ -13,9 +14,23 @@ interface NavCategoriasProps {
   categorias: Categoria[];
   ativa: string;
   onChangeCategoria: (id: string) => void;
+  carregando?: boolean; // Adicione esta prop opcional
 }
 
-const NavCategorias = ({ categorias, ativa, onChangeCategoria }: NavCategoriasProps) => {
+const NavCategorias = ({ 
+  categorias, 
+  ativa, 
+  onChangeCategoria,
+  carregando = false 
+}: NavCategoriasProps) => {
+  
+  const handlePress = (categoriaId: string) => {
+    // Evita múltiplos cliques enquanto carrega
+    if (!carregando || categoriaId !== ativa) {
+      onChangeCategoria(categoriaId);
+    }
+  };
+
   return (
     <View style={NavCategoriasStyles.container}>
       <ScrollView
@@ -25,26 +40,37 @@ const NavCategorias = ({ categorias, ativa, onChangeCategoria }: NavCategoriasPr
       >
         {categorias.map((categoria) => {
           const ativaCategoria = ativa === categoria.id;
+          const estaCarregando = carregando && ativaCategoria;
+          
           return (
             <TouchableOpacity
               key={categoria.id}
-              style={NavCategoriasStyles.categoriaButton}
-              onPress={() => onChangeCategoria(categoria.id)}
+              style={[
+                NavCategoriasStyles.categoriaButton,
+                carregando && { opacity: 0.7 } // Feedback visual durante loading
+              ]}
+              onPress={() => handlePress(categoria.id)}
               activeOpacity={0.7}
+              disabled={carregando && ativaCategoria} // Desabilita se já está carregando esta categoria
             >
               <View style={NavCategoriasStyles.categoriaContent}>
                 <View
                   style={[
                     NavCategoriasStyles.iconContainer,
                     ativaCategoria && NavCategoriasStyles.iconContainerAtiva,
+                    estaCarregando && { backgroundColor: '#93C5FD' } // Cor de loading
                   ]}
                 >
-                  <Icon
-                    name={categoria.icone}
-                    type="material"
-                    size={24} // Tamanho do ícone
-                    color={ativaCategoria ? '#FFFFFF' : '#6B7280'}
-                  />
+                  {estaCarregando ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Icon
+                      name={categoria.icone}
+                      type="material"
+                      size={24}
+                      color={ativaCategoria ? '#FFFFFF' : '#6B7280'}
+                    />
+                  )}
                 </View>
                 <Text
                   style={[
@@ -52,10 +78,12 @@ const NavCategorias = ({ categorias, ativa, onChangeCategoria }: NavCategoriasPr
                     ativaCategoria 
                       ? NavCategoriasStyles.categoriaAtivaText 
                       : NavCategoriasStyles.categoriaInativaText,
+                    estaCarregando && { color: '#3B82F6' } // Texto azul durante loading
                   ]}
                   numberOfLines={1}
                 >
                   {categoria.nome}
+                  {estaCarregando && '...'}
                 </Text>
               </View>
             </TouchableOpacity>

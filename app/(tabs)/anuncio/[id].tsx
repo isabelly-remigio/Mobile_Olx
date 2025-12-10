@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   Alert,
   SafeAreaView,
-  Linking
+  Linking,
+  ActivityIndicator
 } from 'react-native';
 import { Icon, Divider } from '@rneui/themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -16,43 +17,37 @@ import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 import { LocalizacaoAnuncio } from '@/app/src/components/ui/LocalizacaoAnuncio';
 import { useCart } from '@/app/src/context/CartContext';
 import { Anuncio } from '@/app/src/@types/anuncio';
+import { anuncioService } from '@/app/src/services/anuncioService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
 
-// Dados mockados
-const dadosAnuncio: Anuncio = {
+// Dados de fallback caso a API falhe
+const dadosFallback: Anuncio = {
   id: '1',
-  nome: 'iPhone 13 Pro Max 256GB',
-  preco: 4500.00,
+  nome: 'Produto não disponível',
+  preco: 0,
   anunciante: {
-    nome: 'TechStore Recife',
+    nome: 'Vendedor',
     dataCadastro: '2022-03-15',
-    regiao: 'Boa Viagem',
-    cidade: 'Recife',
-    estado: 'PE',
-    tempoResposta: '2 horas',
-    emailVerificado: true,
-    telefoneVerificado: true,
-    telefone: '5581987398754'
+    regiao: 'Não informado',
+    cidade: 'Não informada',
+    estado: 'NI',
+    tempoResposta: 'Não informado',
+    emailVerificado: false,
+    telefoneVerificado: false,
+    telefone: ''
   },
   imagens: [
-    'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?auto=format&w=1080&q=80',
-    'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=170&h=100&fit=crop',
-    'https://images.unsplash.com/photo-1612832021047-9f3f1b6b5f4c?auto=format&w=1080&q=80',
+    'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&w=1080&q=80',
   ],
-  descricao: 'iPhone 13 Pro Max em excelente estado de conservação AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+  descricao: 'Este produto não está disponível no momento.',
   detalhes: {
-    cor: 'Grafite',
-    condicao: 'Usado',
-    marca: 'Apple',
-    modelo: 'iPhone 13 Pro Max',
-    armazenamento: '256GB',
-    memoria: '6GB RAM'
+    condicao: 'Não informada'
   },
   localizacao: {
-    bairro: 'Boa Viagem',
-    cidade: 'Recife',
-    estado: 'PE',
-    cep: '51020-000'
+    bairro: 'Não informado',
+    cidade: 'Não informada',
+    estado: 'NI',
+    cep: '00000-000'
   }
 };
 
@@ -61,28 +56,67 @@ export default function DetalhesAnuncio() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [favoritado, setFavoritado] = useState(false);
   const [descricaoExpandida, setDescricaoExpandida] = useState(false);
+  const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
   const { addToCart } = useCart();
-  
-  const anuncio = dadosAnuncio; // substituir pela busca real
+
+  useEffect(() => {
+    if (id) {
+      carregarAnuncio();
+    } else {
+      setErro('ID do anúncio não fornecido');
+      setCarregando(false);
+    }
+  }, [id]);
+
+  const carregarAnuncio = async () => {
+    try {
+      setCarregando(true);
+      setErro(null);
+      
+      console.log(`📱 Carregando anúncio ID: ${id}`);
+      const dados = await anuncioService.buscarPorId(id);
+      setAnuncio(dados);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar anúncio:', error);
+      setErro(error.message || 'Erro ao carregar detalhes do anúncio');
+      
+      // Usa dados de fallback
+      setAnuncio({
+        ...dadosFallback,
+        id: id || '0',
+        nome: `Produto #${id}`,
+        descricao: `Não foi possível carregar os detalhes deste produto. (${error.message})`
+      });
+      
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   const formatarPreco = (valor: number) => {
     return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   };
 
-  const descricaoLonga = anuncio.descricao.length > 150;
-  const textoDescricao = descricaoExpandida || !descricaoLonga
-    ? anuncio.descricao
-    : anuncio.descricao.substring(0, 150) + '...';
-
   const handleCompartilhar = () => {
-    Alert.alert('Compartilhar', 'Compartilhando anúncio...');
+    if (!anuncio) return;
+    
+    Alert.alert('Compartilhar', `Compartilhando: ${anuncio.nome}`);
+    // Implementar lógica real de compartilhamento aqui
   };
 
   const handleAbrirPerfil = () => {
+    if (!anuncio) return;
+    
     Alert.alert('Perfil', `Abrindo perfil de ${anuncio.anunciante.nome}`);
+    // router.push(`/perfil/${anuncio.anunciante.id}`);
   };
 
   const handleAdicionarCarrinho = () => {
+    if (!anuncio) return;
+    
     try {
       addToCart(anuncio);
       Alert.alert('Sucesso', `${anuncio.nome} adicionado ao carrinho!`);
@@ -92,6 +126,8 @@ export default function DetalhesAnuncio() {
   };
 
   const handleComprarAgora = () => {
+    if (!anuncio) return;
+    
     try {
       addToCart(anuncio);
       Alert.alert('Compra', `Iniciando compra de ${anuncio.nome}`);
@@ -102,6 +138,11 @@ export default function DetalhesAnuncio() {
   };
 
   const handleWhatsApp = () => {
+    if (!anuncio || !anuncio.anunciante.telefone) {
+      Alert.alert('Aviso', 'Telefone do vendedor não disponível');
+      return;
+    }
+    
     const numero = anuncio.anunciante.telefone;
     const mensagem = encodeURIComponent(`Olá! Tenho interesse no anúncio: ${anuncio.nome}`);
     const url = `https://wa.me/${numero}?text=${mensagem}`;
@@ -114,6 +155,102 @@ export default function DetalhesAnuncio() {
   const handleBack = () => {
     router.canGoBack() ? router.back() : router.replace("/");
   };
+
+  const handleRecarregar = () => {
+    carregarAnuncio();
+  };
+
+  // Tela de loading
+  if (carregando) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={handleBack}
+              >
+                <Icon 
+                  name="arrow-back" 
+                  type="material" 
+                  color="#374151"
+                  size={24}
+                />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Carregando...</Text>
+            </View>
+          </View>
+          
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#3B82F6" />
+            <Text style={{ marginTop: 10, color: '#6B7280' }}>
+              Carregando detalhes do produto...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // Tela de erro
+  if (erro && !anuncio) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity 
+                style={styles.backButton}
+                onPress={handleBack}
+              >
+                <Icon 
+                  name="arrow-back" 
+                  type="material" 
+                  color="#374151"
+                  size={24}
+                />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Erro</Text>
+            </View>
+          </View>
+          
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+            <Icon 
+              name="error-outline" 
+              type="material" 
+              color="#EF4444"
+              size={64}
+            />
+            <Text style={{ marginTop: 10, textAlign: 'center', color: '#EF4444' }}>
+              {erro}
+            </Text>
+            <TouchableOpacity 
+              style={{ 
+                marginTop: 20, 
+                padding: 10, 
+                backgroundColor: '#3B82F6',
+                borderRadius: 8
+              }}
+              onPress={handleRecarregar}
+            >
+              <Text style={{ color: 'white' }}>Tentar novamente</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  // Se não tiver anúncio carregado
+  if (!anuncio) {
+    return null;
+  }
+
+  const descricaoLonga = anuncio.descricao.length > 150;
+  const textoDescricao = descricaoExpandida || !descricaoLonga
+    ? anuncio.descricao
+    : anuncio.descricao.substring(0, 150) + '...';
 
   return (
     <View style={styles.container}>
@@ -128,7 +265,7 @@ export default function DetalhesAnuncio() {
               <Icon 
                 name="arrow-back" 
                 type="material" 
-                color="#374151" // gray.700
+                color="#374151"
                 size={24}
               />
             </TouchableOpacity>
@@ -143,7 +280,7 @@ export default function DetalhesAnuncio() {
               <Icon 
                 name={favoritado ? 'favorite' : 'favorite-border'}
                 type="material"
-                color={favoritado ? '#EF4444' : '#374151'} // red.500 : gray.700
+                color={favoritado ? '#EF4444' : '#374151'}
                 size={24}
               />
             </TouchableOpacity>
@@ -155,7 +292,7 @@ export default function DetalhesAnuncio() {
               <Icon 
                 name="share" 
                 type="material" 
-                color="#374151" // gray.700
+                color="#374151"
                 size={24}
               />
             </TouchableOpacity>
@@ -178,7 +315,7 @@ export default function DetalhesAnuncio() {
                 <Icon 
                   name="store" 
                   type="material" 
-                  color="#6B7280" // gray.500
+                  color="#6B7280"
                   size={16}
                 />
                 <Text style={styles.sellerName}>{anuncio.anunciante.nome}</Text>
@@ -203,29 +340,35 @@ export default function DetalhesAnuncio() {
             <Divider style={styles.divider} />
 
             {/* Detalhes do Produto */}
-            <View style={styles.detailsSection}>
-              <Text style={styles.sectionTitle}>Detalhes do Produto</Text>
-              {Object.entries(anuncio.detalhes).map(([chave, valor]) => (
-                <View key={chave} style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>
-                    {chave.replace(/([A-Z])/g, ' $1').trim()}
-                  </Text>
-                  <Text style={styles.detailValue}>{valor}</Text>
+            {anuncio.detalhes && Object.keys(anuncio.detalhes).length > 0 && (
+              <>
+                <View style={styles.detailsSection}>
+                  <Text style={styles.sectionTitle}>Detalhes do Produto</Text>
+                  {Object.entries(anuncio.detalhes).map(([chave, valor]) => (
+                    <View key={chave} style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>
+                        {chave.replace(/([A-Z])/g, ' $1').trim().toUpperCase()}
+                      </Text>
+                      <Text style={styles.detailValue}>{String(valor)}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-
-            <Divider style={styles.divider} />
+                <Divider style={styles.divider} />
+              </>
+            )}
 
             {/* Localização */}
-            <LocalizacaoAnuncio
-              bairro={anuncio.localizacao.bairro}
-              cidade={anuncio.localizacao.cidade}
-              estado={anuncio.localizacao.estado}
-              cep={anuncio.localizacao.cep}
-            />
-
-            <Divider style={styles.divider} />
+            {(anuncio.localizacao.cidade || anuncio.localizacao.estado) && (
+              <>
+                <LocalizacaoAnuncio
+                  bairro={anuncio.localizacao.bairro}
+                  cidade={anuncio.localizacao.cidade}
+                  estado={anuncio.localizacao.estado}
+                  cep={anuncio.localizacao.cep}
+                />
+                <Divider style={styles.divider} />
+              </>
+            )}
 
             {/* Informações do Anunciante */}
             <InfoAnunciante
@@ -239,7 +382,7 @@ export default function DetalhesAnuncio() {
                 <Icon 
                   name="security" 
                   type="material" 
-                  color="#92400E" // yellow.700
+                  color="#92400E"
                   size={20}
                 />
                 <Text style={styles.securityTitle}>Dicas de Segurança</Text>
