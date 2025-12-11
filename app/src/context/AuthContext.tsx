@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [personalData, setPersonalData] = useState<PersonalData | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const API_URL = 'http://localhost:8080/api'; //BASE URL DA API
+  const API_URL = 'http://167.71.123.166:8080/api'; //BASE URL DA API
   const [verificationLoading, setVerificationLoading] = useState(false);
 
   const verifyEmail = async (email: string, code: string) => {

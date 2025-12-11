@@ -22,7 +22,7 @@ export interface Banner {
 
 export interface Produto {
   id: string;
-  titulo: string;
+  nome: string;
   descricao: string;
   preco: number;
   localizacao: string;

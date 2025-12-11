@@ -1,7 +1,7 @@
 // components/ui/CardProdutoRNE.tsx
 import React from 'react';
 import { View, Text, Image, Pressable } from 'react-native';
-import { Icon, Card } from '@rneui/themed';
+import { Icon } from '@rneui/themed';
 import { CardProdutoProps } from '../../@types/home';
 import { formatarPreco } from '../../utils/formatters';
 import { useFavoritos } from '../../hooks/useFavoritos';
@@ -42,7 +42,7 @@ const CardProduto = ({ produto, onPress }: CardProdutoProps) => {
       
       <View style={CardProdutoStyles.contentContainer}>
         <Text style={CardProdutoStyles.titulo} numberOfLines={2}>
-          {produto.titulo}
+          {produto.nome}
         </Text>
         
         <Text style={CardProdutoStyles.preco}>
@@ -50,7 +50,7 @@ const CardProduto = ({ produto, onPress }: CardProdutoProps) => {
         </Text>
         
         <Text style={CardProdutoStyles.descricao} numberOfLines={2}>
-          {produto.descricao}
+          {produto.condicao}
         </Text>
         
         <View style={CardProdutoStyles.localizacaoContainer}>
