@@ -1,5 +1,5 @@
-// screens/TelaPesquisa.tsx
-import React, { useState } from 'react';
+// screens/TelaPesquisa.tsx - VERSÃO CORRIGIDA
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,20 +7,14 @@ import {
   StatusBar,
   FlatList,
   Text,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Card, Image } from '@rneui/themed';
 import BarraPesquisa from '../src/components/ui/BarraPesquisa';
 import { theme } from '../src/theme/theme';
-
-// Tipos
-interface Produto {
-  id: string;
-  nome: string;
-  preco: number;
-  imagem: string;
-  localizacao: string;
-  disponivel: boolean;
-}
+import { produtoService, FiltrosProduto } from '../src/services/produtoService';
+import { Produto } from '../src/@types/home';
 
 interface Filtro {
   precoMin?: number;
@@ -35,68 +29,90 @@ const TelaPesquisa: React.FC = () => {
   const [filtrosAtivos, setFiltrosAtivos] = useState<Filtro>({});
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [resultadosCount, setResultadosCount] = useState(0);
+  const [carregando, setCarregando] = useState(false);
+  const [mostrarResultadosVazios, setMostrarResultadosVazios] = useState(false);
+  
+  // Flag para controlar se já fez uma busca
+  const [jaBuscou, setJaBuscou] = useState(false);
 
-  // Dados mockados para demonstração
-  const produtosMock: Produto[] = [
-    {
-      id: '1',
-      nome: 'iPhone 13 Pro Max 256GB',
-      preco: 4500,
-      imagem: 'https://via.placeholder.com/150',
-      localizacao: 'Recife, PE',
-      disponivel: true,
-    },
-    {
-      id: '2',
-      nome: 'Samsung Galaxy S23',
-      preco: 3200,
-      imagem: 'https://via.placeholder.com/150',
-      localizacao: 'São Paulo, SP',
-      disponivel: true,
-    },
-    {
-      id: '3',
-      nome: 'Notebook Dell Inspiron',
-      preco: 2800,
-      imagem: 'https://via.placeholder.com/150',
-      localizacao: 'Rio de Janeiro, RJ',
-      disponivel: false,
-    },
-  ];
+  // Função para buscar produtos com os filtros atuais
+  const buscarProdutos = useCallback(async () => {
+    console.log('🔍 Buscando produtos com:', {
+      termo: termoPesquisa,
+      filtros: filtrosAtivos
+    });
 
-  const handleSearch = (texto: string) => {
-    setTermoPesquisa(texto);
-    
-    if (texto.trim() === '' && Object.keys(filtrosAtivos).length === 0) {
+    // Se não tem termo nem filtros, não busca
+    if (!termoPesquisa.trim() && Object.keys(filtrosAtivos).length === 0) {
+      console.log('📊 Sem termo nem filtros, limpando resultados');
       setProdutos([]);
       setResultadosCount(0);
+      setMostrarResultadosVazios(false);
+      setJaBuscou(false);
       return;
     }
 
-    // Simulação de busca
-    const resultados = produtosMock.filter((produto) => {
-      const matchTexto = texto.trim() === '' || 
-        produto.nome.toLowerCase().includes(texto.toLowerCase());
+    try {
+      setCarregando(true);
+      setMostrarResultadosVazios(true);
+      setJaBuscou(true);
       
-      const matchPrecoMin = !filtrosAtivos.precoMin || 
-        produto.preco >= filtrosAtivos.precoMin;
-      
-      const matchPrecoMax = !filtrosAtivos.precoMax || 
-        produto.preco <= filtrosAtivos.precoMax;
-      
-      const matchDisponivel = !filtrosAtivos.disponivel || 
-        produto.disponivel;
+      // Converte filtros do modal para formato da API
+      const filtrosAPI: FiltrosProduto = {
+        termo: termoPesquisa.trim() || undefined,
+        categoria: filtrosAtivos.categoria || undefined,
+        precoMin: filtrosAtivos.precoMin || undefined,
+        precoMax: filtrosAtivos.precoMax || undefined,
+        uf: filtrosAtivos.estado || undefined
+      };
 
-      return matchTexto && matchPrecoMin && matchPrecoMax && matchDisponivel;
-    });
+      console.log('📡 Enviando para API:', filtrosAPI);
 
-    setProdutos(resultados);
-    setResultadosCount(resultados.length);
+      // Faz pesquisa avançada
+      const resultados = await produtoService.pesquisarAvancado(filtrosAPI);
+      
+      console.log(`✅ ${resultados.length} produtos encontrados`);
+      setProdutos(resultados);
+      setResultadosCount(resultados.length);
+      
+    } catch (error) {
+      console.error('❌ Erro na pesquisa:', error);
+      Alert.alert('Erro', 'Não foi possível realizar a pesquisa');
+      setProdutos([]);
+      setResultadosCount(0);
+    } finally {
+      setCarregando(false);
+    }
+  }, [termoPesquisa, filtrosAtivos]);
+
+  // Buscar quando termo ou filtros mudam
+  useEffect(() => {
+    // Debounce para evitar muitas chamadas
+    const timer = setTimeout(() => {
+      buscarProdutos();
+    }, 500); // 500ms de delay
+
+    return () => clearTimeout(timer);
+  }, [buscarProdutos]);
+
+  const handleSearch = (texto: string) => {
+    console.log('📝 Termo alterado para:', texto);
+    setTermoPesquisa(texto);
   };
 
-  const handleFiltrosChange = (filtros: Filtro) => {
-    setFiltrosAtivos(filtros);
-    handleSearch(termoPesquisa);
+  const handleFiltrosChange = (novosFiltros: Filtro) => {
+    console.log('⚙️ Filtros alterados (substituindo):', novosFiltros);
+    
+    // Substitui TODOS os filtros anteriores pelos novos
+    setFiltrosAtivos(novosFiltros);
+  };
+
+  // Função para limpar TUDO (chamada pelo BarraPesquisa quando o usuário clica em "Limpar Todos")
+  const handleLimparTodosFiltros = () => {
+    console.log('🧹 Limpando tudo (chamado do BarraPesquisa)');
+    setTermoPesquisa('');
+    setFiltrosAtivos({});
+    // Não precisa limpar produtos aqui - a busca vai ser disparada automaticamente pelo useEffect
   };
 
   const renderProduto = ({ item }: { item: Produto }) => (
@@ -114,9 +130,9 @@ const TelaPesquisa: React.FC = () => {
           <Text style={styles.productPrice}>
             R$ {item.preco.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </Text>
-          <Text style={styles.productLocation}>{item.localizacao}</Text>
-          {!item.disponivel && (
-            <Text style={styles.productUnavailable}>Indisponível</Text>
+          <Text style={styles.productLocation}>📍 {item.localizacao}</Text>
+          {item.destaque && (
+            <Text style={styles.productHighlight}>⭐ Destaque</Text>
           )}
         </View>
       </View>
@@ -124,12 +140,21 @@ const TelaPesquisa: React.FC = () => {
   );
 
   const renderEmptyState = () => {
-    if (termoPesquisa === '' && Object.keys(filtrosAtivos).length === 0) {
+    if (carregando) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Buscando produtos...</Text>
+        </View>
+      );
+    }
+
+    if (!jaBuscou) {
       return (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>O que você está procurando?</Text>
           <Text style={styles.emptyText}>
-            Use a barra de pesquisa acima para encontrar produtos
+            Digite na barra de busca ou use os filtros para encontrar produtos
           </Text>
         </View>
       );
@@ -139,26 +164,63 @@ const TelaPesquisa: React.FC = () => {
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyTitle}>Nenhum resultado encontrado</Text>
         <Text style={styles.emptyText}>
-          Tente ajustar sua pesquisa ou filtros
+          {termoPesquisa 
+            ? `Não encontramos resultados para "${termoPesquisa}" com os filtros aplicados`
+            : 'Nenhum produto encontrado com os filtros selecionados'}
         </Text>
+
       </View>
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
-      
-      {/* Barra de Pesquisa */}
-      <BarraPesquisa
-        placeholder="Buscar produtos..."
-        onSearch={handleSearch}
-        onFiltrosChange={handleFiltrosChange}
-        resultadosCount={resultadosCount}
-        mostrarResultadosVazios={termoPesquisa !== '' || Object.keys(filtrosAtivos).length > 0}
-      />
+  // Verifica se há filtros ativos
+  const temFiltrosAtivos = Object.keys(filtrosAtivos).length > 0;
+  
+  // Texto dos filtros ativos para exibir
+  const getTextoFiltrosAtivos = () => {
+    const filtrosTexto = [];
+    
+    if (filtrosAtivos.categoria) {
+      const categoria = filtrosAtivos.categoria;
+      filtrosTexto.push(`Categoria: ${categoria}`);
+    }
+    
+    if (filtrosAtivos.estado) {
+      filtrosTexto.push(`Estado: ${filtrosAtivos.estado}`);
+    }
+    
+    if (filtrosAtivos.precoMin) {
+      filtrosTexto.push(`Mín: R$ ${filtrosAtivos.precoMin.toFixed(2)}`);
+    }
+    
+    if (filtrosAtivos.precoMax) {
+      filtrosTexto.push(`Máx: R$ ${filtrosAtivos.precoMax.toFixed(2)}`);
+    }
+    
+    return filtrosTexto.join(' • ');
+  };
 
-      {/* Lista de Resultados */}
+  return (
+   <SafeAreaView style={styles.container}>
+    <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
+    
+    {/* Barra de Pesquisa - PASSA A FUNÇÃO handleLimparTodosFiltros */}
+    <BarraPesquisa
+      placeholder="Buscar produtos..."
+      onSearch={handleSearch}
+      onFiltrosChange={handleFiltrosChange}
+      resultadosCount={resultadosCount}
+      mostrarResultadosVazios={mostrarResultadosVazios && resultadosCount === 0}
+      onLimparTodosFiltros={handleLimparTodosFiltros}
+    />
+
+    {/* Lista de Resultados */}
+    {carregando ? (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Buscando produtos...</Text>
+      </View>
+    ) : (
       <FlatList
         data={produtos}
         renderItem={renderProduto}
@@ -167,8 +229,9 @@ const TelaPesquisa: React.FC = () => {
         ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
       />
-    </SafeAreaView>
-  );
+    )}
+  </SafeAreaView>
+);
 };
 
 const styles = StyleSheet.create({
@@ -185,9 +248,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.md,
     marginBottom: theme.spacing.md,
     padding: theme.spacing.sm,
-    ...theme.shadows.sm,
     borderWidth: 1,
     borderColor: theme.colors.gray200,
+    backgroundColor: theme.colors.white,
   },
   cardContent: {
     flexDirection: 'row',
@@ -217,12 +280,17 @@ const styles = StyleSheet.create({
   productLocation: {
     fontSize: theme.typography.sizes.sm,
     color: theme.colors.gray600,
+    marginBottom: theme.spacing.xs,
   },
-  productUnavailable: {
+  productHighlight: {
     fontSize: theme.typography.sizes.xs,
-    color: theme.colors.error,
+    color: theme.colors.success,
     fontWeight: theme.typography.weights.medium,
-    marginTop: theme.spacing.xs,
+    backgroundColor: theme.colors.successLight,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
   emptyContainer: {
     flex: 1,
@@ -244,6 +312,35 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.sizes.md,
+    color: theme.colors.gray600,
+  },
+  searchInfoContainer: {
+    backgroundColor: theme.colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.gray200,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  searchInfoText: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.gray700,
+    marginBottom: 4,
+    flexWrap: 'wrap',
+  },
+  resultsCount: {
+    fontSize: theme.typography.sizes.sm,
+    color: theme.colors.gray600,
+    fontWeight: theme.typography.weights.medium,
+  },
+  // Removidos os estilos do botão clearAllButton
 });
 
 export default TelaPesquisa;

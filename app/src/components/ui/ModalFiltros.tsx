@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Modal,
   View,
@@ -30,6 +30,10 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
   const [showEstados, setShowEstados] = useState(false);
   const [showCategorias, setShowCategorias] = useState(false);
   const [slideAnim] = useState(new Animated.Value(height));
+  
+  // Refs para os campos de entrada
+  const precoMinRef = useRef<TextInput>(null);
+  const precoMaxRef = useRef<TextInput>(null);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -38,6 +42,10 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
         duration: 300,
         useNativeDriver: true,
       }).start();
+      // Foca automaticamente no primeiro campo quando o modal abre
+      setTimeout(() => {
+        precoMinRef.current?.focus();
+      }, 350);
     } else {
       Animated.timing(slideAnim, {
         toValue: height,
@@ -50,20 +58,14 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
   const handleAplicar = () => {
     const filtrosFormatados: Filtro = {
       ...filtros,
-      precoMin: precoMinInput ? parseFloat(precoMinInput) : undefined,
-      precoMax: precoMaxInput ? parseFloat(precoMaxInput) : undefined,
+      precoMin: precoMinInput ? parseFloat(precoMinInput.replace(',', '.')) : undefined,
+      precoMax: precoMaxInput ? parseFloat(precoMaxInput.replace(',', '.')) : undefined,
     };
     
-    // Transformar os filtros para o formato do backend
-    const filtrosBackend = {
-      termo: filtrosFormatados.termo,
-      categoria: filtrosFormatados.categoria, // Já está no formato correto
-      precoMin: filtrosFormatados.precoMin,
-      precoMax: filtrosFormatados.precoMax,
-      uf: filtrosFormatados.estado // Mapeia estado para uf
-    };
+    console.log('🎯 Filtros aplicados:', filtrosFormatados);
     
-    onAplicarFiltros(filtrosBackend);
+    // Envia os filtros formatados para o parent
+    onAplicarFiltros(filtrosFormatados);
     onClose();
   };
 
@@ -71,6 +73,47 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
     setFiltros({});
     setPrecoMinInput('');
     setPrecoMaxInput('');
+    // Foca no primeiro campo após limpar
+    precoMinRef.current?.focus();
+  };
+
+  // Função para formatar o preço enquanto digita
+  const formatarPrecoInput = (texto: string): string => {
+    // Remove tudo que não é número ou vírgula
+    let valor = texto.replace(/[^\d,]/g, '');
+    
+    // Garante que só tem uma vírgula
+    const partes = valor.split(',');
+    if (partes.length > 2) {
+      valor = partes[0] + ',' + partes.slice(1).join('');
+    }
+    
+    // Limita a 2 casas decimais
+    if (partes.length === 2 && partes[1].length > 2) {
+      valor = partes[0] + ',' + partes[1].substring(0, 2);
+    }
+    
+    return valor;
+  };
+
+  const handlePrecoMinChange = (texto: string) => {
+    const formatado = formatarPrecoInput(texto);
+    setPrecoMinInput(formatado);
+  };
+
+  const handlePrecoMaxChange = (texto: string) => {
+    const formatado = formatarPrecoInput(texto);
+    setPrecoMaxInput(formatado);
+  };
+
+  // Navegação entre campos com "Próximo" no teclado
+  const handlePrecoMinSubmit = () => {
+    precoMaxRef.current?.focus();
+  };
+
+  const handlePrecoMaxSubmit = () => {
+    // Se quiser, pode fazer algo quando terminar de digitar o preço máximo
+    // ou simplesmente fechar o teclado
   };
 
   const selecionarEstado = (estado: Estado) => {
@@ -79,7 +122,6 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
   };
 
   const selecionarCategoria = (categoriaId: string) => {
-    // Encontra a categoria e pega o valor do backend
     const categoria = CATEGORIAS_FRONTEND.find(cat => cat.id === categoriaId);
     if (categoria) {
       setFiltros(prev => ({ ...prev, categoria: categoria.backendValue }));
@@ -139,33 +181,58 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
           <View style={styles.row}>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Mínimo</Text>
-              <View style={styles.inputWrapper}>
+              <TouchableOpacity 
+                style={styles.inputWrapper}
+                onPress={() => precoMinRef.current?.focus()}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.currencySymbol}>R$</Text>
                 <TextInput
+                  ref={precoMinRef}
                   style={styles.input}
                   placeholder="0,00"
                   value={precoMinInput}
-                  onChangeText={setPrecoMinInput}
-                  keyboardType="numeric"
+                  onChangeText={handlePrecoMinChange}
+                  keyboardType="decimal-pad"
                   placeholderTextColor={constants.COLORS.gray500}
+                  returnKeyType="next"
+                  onSubmitEditing={handlePrecoMinSubmit}
+                  clearButtonMode="while-editing"
+                  selectTextOnFocus
+                  autoComplete="off"
                 />
-              </View>
+              </TouchableOpacity>
             </View>
             <View style={[styles.inputContainer, { marginLeft: 12 }]}>
               <Text style={styles.inputLabel}>Máximo</Text>
-              <View style={styles.inputWrapper}>
+              <TouchableOpacity 
+                style={styles.inputWrapper}
+                onPress={() => precoMaxRef.current?.focus()}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.currencySymbol}>R$</Text>
                 <TextInput
+                  ref={precoMaxRef}
                   style={styles.input}
                   placeholder="0,00"
                   value={precoMaxInput}
-                  onChangeText={setPrecoMaxInput}
-                  keyboardType="numeric"
+                  onChangeText={handlePrecoMaxChange}
+                  keyboardType="decimal-pad"
                   placeholderTextColor={constants.COLORS.gray500}
+                  returnKeyType="done"
+                  onSubmitEditing={handlePrecoMaxSubmit}
+                  clearButtonMode="while-editing"
+                  selectTextOnFocus
+                  autoComplete="off"
                 />
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
+          
+          {/* Dica abaixo dos campos */}
+          <Text style={styles.inputHint}>
+            Digite os valores e use "Próximo" para navegar entre campos
+          </Text>
         </View>
 
         <View style={styles.divider} />
@@ -176,7 +243,13 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
           <Text style={styles.inputLabel}>Estado</Text>
           <TouchableOpacity
             style={styles.selectorButton}
-            onPress={() => setShowEstados(true)}
+            onPress={() => {
+              // Esconde teclado antes de abrir o modal de estados
+              precoMinRef.current?.blur();
+              precoMaxRef.current?.blur();
+              setShowEstados(true);
+            }}
+            activeOpacity={0.7}
           >
             <Text style={[
               styles.selectorText,
@@ -196,7 +269,13 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
           <Text style={styles.inputLabel}>Categoria</Text>
           <TouchableOpacity
             style={styles.selectorButton}
-            onPress={() => setShowCategorias(true)}
+            onPress={() => {
+              // Esconde teclado antes de abrir o modal de categorias
+              precoMinRef.current?.blur();
+              precoMaxRef.current?.blur();
+              setShowCategorias(true);
+            }}
+            activeOpacity={0.7}
           >
             <Text style={[
               styles.selectorText,
@@ -229,6 +308,7 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
     </Animated.View>
   );
 
+  // ... resto do código (ModalEstados e ModalCategorias permanecem iguais)
   const ModalEstados = () => (
     <Modal
       visible={showEstados}
@@ -271,7 +351,7 @@ const ModalFiltros: React.FC<ModalFiltrosProps> = ({
             </TouchableOpacity>
           </View>
           <FlatList
-            data={CATEGORIAS_FRONTEND.filter(cat => cat.id !== 'tudo')} // Remove "Tudo" da lista
+            data={CATEGORIAS_FRONTEND.filter(cat => cat.id !== 'tudo')}
             keyExtractor={(item) => item.id}
             renderItem={renderItemCategoria}
             showsVerticalScrollIndicator={false}

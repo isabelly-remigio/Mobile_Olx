@@ -151,10 +151,18 @@ async listarTodosAtivos(): Promise<Produto[]> {
   // Pesquisar produtos simples
   async pesquisarProdutos(termo: string): Promise<Produto[]> {
     try {
-      const produtos = await apiService.get<Produto[]>('/produtos/pesquisar', {
+      console.log(`🔍 Pesquisando por: "${termo}"`);
+      
+      const response = await publicApi.get('/produtos/pesquisar', {
         params: { termo }
       });
-      return produtos.map(produto => this.transformarProduto(produto));
+      
+      console.log(`✅ Resultados da pesquisa: ${response.data.length} produtos`);
+      
+      // Transforma os produtos
+      return response.data.map((produtoBackend: any) => 
+        this.transformarProduto(produtoBackend)
+      );
     } catch (error) {
       console.error('Erro ao pesquisar produtos:', error);
       throw error;
@@ -164,21 +172,48 @@ async listarTodosAtivos(): Promise<Produto[]> {
   // Pesquisa avançada com filtros
   async pesquisarAvancado(filtros: FiltrosProduto): Promise<Produto[]> {
     try {
+      console.log('🎯 Pesquisa avançada com filtros:', filtros);
+      
+      // Remove filtros vazios/undefined
       const params: any = {};
       
-      if (filtros.termo) params.termo = filtros.termo;
-      if (filtros.categoria) params.categoria = filtros.categoria;
-      if (filtros.precoMin) params.precoMin = filtros.precoMin;
-      if (filtros.precoMax) params.precoMax = filtros.precoMax;
-      if (filtros.uf) params.uf = filtros.uf;
-
-      const produtos = await apiService.get<Produto[]>('/produtos/pesquisar-avancado', { params });
-      return produtos.map(produto => this.transformarProduto(produto));
+      if (filtros.termo && filtros.termo.trim()) {
+        params.termo = filtros.termo;
+      }
+      
+      if (filtros.categoria) {
+        params.categoria = filtros.categoria;
+      }
+      
+      if (filtros.precoMin !== undefined && filtros.precoMin > 0) {
+        params.precoMin = filtros.precoMin;
+      }
+      
+      if (filtros.precoMax !== undefined && filtros.precoMax > 0) {
+        params.precoMax = filtros.precoMax;
+      }
+      
+      if (filtros.uf) {
+        params.uf = filtros.uf;
+      }
+      
+      console.log('📡 Parâmetros da pesquisa:', params);
+      
+      // Faz a requisição
+      const response = await publicApi.get('/produtos/pesquisar-avancado', { params });
+      
+      console.log(`✅ Resultados: ${response.data.length} produtos`);
+      
+      // Transforma os produtos
+      return response.data.map((produtoBackend: any) => 
+        this.transformarProduto(produtoBackend)
+      );
     } catch (error) {
       console.error('Erro na pesquisa avançada:', error);
       throw error;
     }
   },
+
 
   // Buscar detalhes de um produto
   async visualizarDetalhes(id: number): Promise<Produto> {

@@ -15,7 +15,7 @@ import {
   BarraPesquisaConstants,
 } from '../../styles/components/BarraPesquisaStyles';
 import { theme } from '../../theme/theme';
-
+import { CATEGORIAS_FRONTEND } from '../../services/produtoService';
 const BarraPesquisa: React.FC<BarraPesquisaProps> = ({
   placeholder = 'Buscar...',
   onSearch,
@@ -55,47 +55,47 @@ const BarraPesquisa: React.FC<BarraPesquisaProps> = ({
     onSearch('');
   };
 
-  const handleAplicarFiltros = (filtros: Filtro) => {
-    const novosFiltros: FiltroAtivo[] = [];
+ const handleAplicarFiltros = (filtros: Filtro) => {
+  console.log('🎯 Filtros aplicados no componente:', filtros);
+  
+  const novosFiltros: FiltroAtivo[] = [];
 
-    if (filtros.precoMin)
-      novosFiltros.push({
-        tipo: 'precoMin',
-        valor: filtros.precoMin,
-        label: `Mín: R$ ${filtros.precoMin.toFixed(2).replace('.', ',')}`,
-      });
+  if (filtros.precoMin)
+    novosFiltros.push({
+      tipo: 'precoMin',
+      valor: filtros.precoMin,
+      label: `Mín: R$ ${filtros.precoMin.toFixed(2).replace('.', ',')}`,
+    });
 
-    if (filtros.precoMax)
-      novosFiltros.push({
-        tipo: 'precoMax',
-        valor: filtros.precoMax,
-        label: `Máx: R$ ${filtros.precoMax.toFixed(2).replace('.', ',')}`,
-      });
+  if (filtros.precoMax)
+    novosFiltros.push({
+      tipo: 'precoMax',
+      valor: filtros.precoMax,
+      label: `Máx: R$ ${filtros.precoMax.toFixed(2).replace('.', ',')}`,
+    });
 
-    if (filtros.estado)
-      novosFiltros.push({
-        tipo: 'estado',
-        valor: filtros.estado,
-        label: `Estado: ${filtros.estado}`,
-      });
+  if (filtros.estado)
+    novosFiltros.push({
+      tipo: 'estado',
+      valor: filtros.estado,
+      label: `Estado: ${filtros.estado}`,
+    });
 
-    if (filtros.categoria)
-      novosFiltros.push({
-        tipo: 'categoria',
-        valor: filtros.categoria,
-        label: `Categoria: ${filtros.categoria}`,
-      });
+  if (filtros.categoria) {
+    // Encontra o nome da categoria
+    const categoria = CATEGORIAS_FRONTEND.find(cat => cat.backendValue === filtros.categoria);
+    novosFiltros.push({
+      tipo: 'categoria',
+      valor: filtros.categoria,
+      label: `Categoria: ${categoria?.nome || filtros.categoria}`,
+    });
+  }
 
-    if (filtros.disponivel)
-      novosFiltros.push({
-        tipo: 'disponivel',
-        valor: 'true',
-        label: 'Disponível',
-      });
-
-    setFiltrosAtivos(novosFiltros);
-    onFiltrosChange?.(filtros);
-  };
+  setFiltrosAtivos(novosFiltros);
+  
+  // Chama a função do parent para aplicar os filtros
+  onFiltrosChange?.(filtros);
+};
 
   const handleRemoverFiltro = (index: number) => {
     const novosFiltros = filtrosAtivos.filter((_, i) => i !== index);

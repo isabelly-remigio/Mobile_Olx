@@ -21,6 +21,7 @@ import {
   Categoria,
   Banner,
   Produto,
+  Filtro, // ADICIONE ESTE IMPORT
 } from '../src/@types/home';
 
 // Categorias para os ícones
@@ -78,7 +79,7 @@ export default function HomeScreen() {
       produtos.slice(0, 3).forEach((produto, index) => {
         console.log(`Produto ${index + 1}:`, {
           id: produto.id,
-          titulo: produto.nome,
+          nome: produto.nome, // CORRIGIDO: estava 'titulo'
           localizacao: produto.localizacao,
           preco: produto.preco,
           temImagem: !!produto.imagem,
@@ -108,60 +109,131 @@ export default function HomeScreen() {
   };
 
   // Quando a categoria muda
-const handleChangeCategoria = async (categoriaId: string) => {
-  console.log('🔘 Usuário clicou na categoria:', categoriaId);
-  setCategoriaAtiva(categoriaId);
-  setBuscando(false);
-  
-  try {
-    setCarregando(true);
+  const handleChangeCategoria = async (categoriaId: string) => {
+    console.log('🔘 Usuário clicou na categoria:', categoriaId);
+    setCategoriaAtiva(categoriaId);
+    setBuscando(false);
     
-    // Se for "tudo", mostra todos os produtos
-    if (categoriaId === 'tudo') {
-      console.log('📊 Mostrando todos os produtos (tudo)');
+    try {
+      setCarregando(true);
+      
+      // Se for "tudo", mostra todos os produtos
+      if (categoriaId === 'tudo') {
+        console.log('📊 Mostrando todos os produtos (tudo)');
+        setProdutosFiltrados(produtosDiversos);
+        return;
+      }
+      
+      console.log(`🔄 Buscando produtos da categoria ${categoriaId}...`);
+      
+      // Para outras categorias, busca da API
+      const produtos = await produtoService.buscarPorCategoria(categoriaId);
+      
+      console.log(`✅ Encontrados ${produtos.length} produtos na categoria ${categoriaId}`);
+      
+      // Verifique se os produtos têm localização
+      produtos.forEach((produto, index) => {
+        console.log(`   ${index + 1}. ${produto.nome} - ${produto.localizacao}`);
+      });
+      
+      setProdutosFiltrados(produtos);
+      
+    } catch (error) {
+      console.error('❌ Erro ao buscar por categoria:', error);
+      
+      // Fallback: volta para "tudo"
+      setCategoriaAtiva('tudo');
       setProdutosFiltrados(produtosDiversos);
-      return;
+      
+      Alert.alert(
+        'Categoria vazia',
+        'Não há produtos nesta categoria no momento.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setCarregando(false);
     }
-    
-    console.log(`🔄 Buscando produtos da categoria ${categoriaId}...`);
-    
-    // Para outras categorias, busca da API
-    const produtos = await produtoService.buscarPorCategoria(categoriaId);
-    
-    console.log(`✅ Encontrados ${produtos.length} produtos na categoria ${categoriaId}`);
-    
-    // Verifique se os produtos têm localização
-    produtos.forEach((produto, index) => {
-      console.log(`   ${index + 1}. ${produto.nome} - ${produto.localizacao}`);
-    });
-    
-    setProdutosFiltrados(produtos);
-    
-  } catch (error) {
-    console.error('❌ Erro ao buscar por categoria:', error);
-    
-    // Fallback: volta para "tudo"
-    setCategoriaAtiva('tudo');
-    setProdutosFiltrados(produtosDiversos);
-    
-    Alert.alert(
-      'Categoria vazia',
-      'Não há produtos nesta categoria no momento.',
-      [{ text: 'OK' }]
-    );
-  } finally {
-    setCarregando(false);
-  }
-};
+  };
 
   const handleSearch = useCallback(async (texto: string) => {
-    console.log('Pesquisando:', texto);
+    console.log('🔍 Pesquisando:', texto);
     setTermoPesquisa(texto);
     const estaBuscando = !!texto.trim();
     setBuscando(estaBuscando);
 
-    if (!texto.trim()) {
-      console.log('Pesquisa vazia, voltando para produtos normais');
+    if (!texto.trim() && Object.keys(filtrosAtivos).length === 0) {
+      console.log('📊 Sem texto nem filtros, mostrando todos os produtos');
+      setProdutosFiltrados(produtosDiversos);
+      return;
+    }
+
+    try {
+      setCarregando(true);
+      let resultados: Produto[] = [];
+      
+      // Se tem texto OU filtros, faz pesquisa
+      if (texto.trim() || Object.keys(filtrosAtivos).length > 0) {
+        console.log('🎯 Fazendo pesquisa com:', { texto, filtrosAtivos });
+        
+        // Combina termo de pesquisa com filtros ativos
+        const filtrosCombinados: FiltrosProduto = {
+          ...filtrosAtivos,
+          termo: texto.trim() || undefined
+        };
+        
+        // Remove categoria se for "tudo" (já é tratado separadamente)
+        if (categoriaAtiva === 'tudo' && filtrosCombinados.categoria) {
+          delete filtrosCombinados.categoria;
+        }
+        
+        // Faz pesquisa avançada
+        resultados = await produtoService.pesquisarAvancado(filtrosCombinados);
+      } else {
+        // Sem texto nem filtros, mostra produtos da categoria atual
+        if (categoriaAtiva === 'tudo') {
+          resultados = produtosDiversos;
+        } else {
+          resultados = await produtoService.buscarPorCategoria(categoriaAtiva);
+        }
+      }
+      
+      console.log(`✅ ${resultados.length} produtos encontrados`);
+      setProdutosFiltrados(resultados);
+      
+    } catch (error) {
+      console.error('❌ Erro na pesquisa:', error);
+      Alert.alert('Erro', 'Não foi possível realizar a pesquisa');
+      
+      // Fallback: mostra produtos da categoria atual
+      if (categoriaAtiva === 'tudo') {
+        setProdutosFiltrados(produtosDiversos);
+      }
+    } finally {
+      setCarregando(false);
+    }
+  }, [produtosDiversos, filtrosAtivos, categoriaAtiva]);
+
+  // CORREÇÃO: Esta função recebe Filtro (do Modal) e converte para FiltrosProduto (da API)
+  const handleFiltrosChange = useCallback(async (filtrosModal: Filtro) => {
+    console.log('⚙️ Filtros alterados (do modal):', filtrosModal);
+    
+    // Converte Filtro do modal para FiltrosProduto (formato da API)
+    const filtrosAPI: FiltrosProduto = {
+      termo: termoPesquisa || undefined,
+      categoria: filtrosModal.categoria || undefined,
+      precoMin: filtrosModal.precoMin || undefined,
+      precoMax: filtrosModal.precoMax || undefined,
+      uf: filtrosModal.estado || undefined
+    };
+    
+    console.log('📡 Filtros convertidos para API:', filtrosAPI);
+    setFiltrosAtivos(filtrosAPI);
+    
+    // Se não há termo de pesquisa nem filtros, volta aos produtos normais
+    const temFiltrosAtivos = Object.values(filtrosAPI).some(valor => valor !== undefined);
+    
+    if (!termoPesquisa.trim() && !temFiltrosAtivos) {
+      console.log('📊 Sem filtros ativos, mostrando produtos normais');
       if (categoriaAtiva === 'tudo') {
         setProdutosFiltrados(produtosDiversos);
       } else {
@@ -169,16 +241,44 @@ const handleChangeCategoria = async (categoriaId: string) => {
       }
       return;
     }
-
+    
+    // Aplica os filtros
     try {
-      const resultados = await produtoService.pesquisarProdutos(texto);
-      console.log('Resultados da pesquisa:', resultados.length);
+      setCarregando(true);
+      console.log('🎯 Aplicando filtros na API:', filtrosAPI);
+      
+      const resultados = await produtoService.pesquisarAvancado(filtrosAPI);
+      console.log(`✅ ${resultados.length} produtos encontrados com filtros`);
+      
       setProdutosFiltrados(resultados);
     } catch (error) {
-      console.error('Erro na pesquisa:', error);
-      Alert.alert('Erro', 'Não foi possível realizar a pesquisa');
+      console.error('❌ Erro ao aplicar filtros:', error);
+      Alert.alert('Erro', 'Não foi possível aplicar os filtros');
+      
+      // Fallback: mostra produtos sem filtros
+      if (categoriaAtiva === 'tudo') {
+        setProdutosFiltrados(produtosDiversos);
+      } else {
+        await handleChangeCategoria(categoriaAtiva);
+      }
+    } finally {
+      setCarregando(false);
     }
-  }, [produtosDiversos, categoriaAtiva]);
+  }, [termoPesquisa, categoriaAtiva, produtosDiversos]);
+
+  // Função para limpar todos os filtros
+  const handleLimparFiltros = useCallback(async () => {
+    console.log('🧹 Limpando todos os filtros');
+    setFiltrosAtivos({});
+    setTermoPesquisa('');
+    setBuscando(false);
+    
+    if (categoriaAtiva === 'tudo') {
+      setProdutosFiltrados(produtosDiversos);
+    } else {
+      await handleChangeCategoria(categoriaAtiva);
+    }
+  }, [categoriaAtiva, produtosDiversos]);
 
   const handleToggleLogin = () => {
     if (user) {
@@ -216,23 +316,6 @@ const handleChangeCategoria = async (categoriaId: string) => {
       [{ text: 'OK' }]
     );
   };
-
-  const handleFiltrosChange = useCallback(async (filtros: FiltrosProduto) => {
-    console.log('Filtros alterados:', filtros);
-    setFiltrosAtivos(filtros);
-    
-    try {
-      setCarregando(true);
-      const resultados = await produtoService.pesquisarAvancado(filtros);
-      console.log('Resultados com filtros:', resultados.length);
-      setProdutosFiltrados(resultados);
-    } catch (error) {
-      console.error('Erro ao aplicar filtros:', error);
-      Alert.alert('Erro', 'Não foi possível aplicar os filtros');
-    } finally {
-      setCarregando(false);
-    }
-  }, []);
 
   const handleAbrirDetalhesAnuncio = (produtoId: string) => {
     console.log('Abrindo detalhes do produto:', produtoId);
@@ -288,7 +371,13 @@ const handleChangeCategoria = async (categoriaId: string) => {
   );
 
   const renderProdutoHorizontal = ({ item }: { item: Produto }) => {
-    console.log('Renderizando card para:', item.titulo);
+    console.log('🎴 Renderizando card para:', {
+      id: item.id,
+      nome: item.nome, // CORRIGIDO: estava item.titulo
+      localizacao: item.localizacao,
+      temNome: !!item.nome
+    });
+    
     return (
       <View style={HomeScreenStyles.produtoWrapper}>
         <CardProduto
@@ -304,10 +393,14 @@ const handleChangeCategoria = async (categoriaId: string) => {
   // Produtos mais recentes (últimos 6 produtos)
   const novosAnuncios = produtosDiversos.slice(0, 6);
 
-  console.log('Renderizando HomeScreen:');
+  console.log('📊 Renderizando HomeScreen:');
   console.log('- Total produtos:', produtosDiversos.length);
   console.log('- Produtos destaque:', produtosEmDestaque.length);
   console.log('- Novos anúncios:', novosAnuncios.length);
+  console.log('- Produtos filtrados:', produtosFiltrados.length);
+  console.log('- Filtros ativos:', filtrosAtivos);
+  console.log('- Buscando:', buscando);
+  console.log('- Categoria ativa:', categoriaAtiva);
 
   // Tela de loading
   if (carregando && !buscando) {
@@ -358,6 +451,10 @@ const handleChangeCategoria = async (categoriaId: string) => {
     );
   }
 
+  // Verifique se deve mostrar contador de resultados
+  const deveMostrarResultados = buscando || Object.keys(filtrosAtivos).length > 0;
+  const resultadosCount = produtosFiltrados.length;
+
   return (
     <View style={HomeScreenStyles.container}>
       <Header
@@ -366,13 +463,13 @@ const handleChangeCategoria = async (categoriaId: string) => {
         onNotificacoes={handleNotificacoes}
       />
 
-      <BarraPesquisa
-        placeholder="O que você está procurando?"
-        onSearch={handleSearch}
-        onFiltrosChange={handleFiltrosChange}
-        resultadosCount={buscando ? produtosFiltrados.length : 0}
-        mostrarResultadosVazios={buscando && produtosFiltrados.length === 0}
-      />
+<BarraPesquisa
+  placeholder="O que você está procurando?"
+  onSearch={handleSearch}
+  onFiltrosChange={handleFiltrosChange} // Esta função já está corrigida
+  resultadosCount={(buscando || Object.keys(filtrosAtivos).length > 0) ? produtosFiltrados.length : 0}
+  mostrarResultadosVazios={(buscando || Object.keys(filtrosAtivos).length > 0) && produtosFiltrados.length === 0}
+/>
 
       <NavCategorias
         categorias={categorias}
@@ -394,7 +491,7 @@ const handleChangeCategoria = async (categoriaId: string) => {
                 <Text style={HomeScreenStyles.searchResultsTitle}>
                   {`${produtosFiltrados.length} resultado${
                     produtosFiltrados.length !== 1 ? 's' : ''
-                  } para "${termoPesquisa}"`}
+                  } ${termoPesquisa ? `para "${termoPesquisa}"` : 'encontrados'}`}
                 </Text>
                 <FlatList
                   data={produtosFiltrados}
@@ -418,67 +515,77 @@ const handleChangeCategoria = async (categoriaId: string) => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={HomeScreenStyles.scrollContent}
           >
-            {/* Carrossel */}
-            <Carrossel
-              banners={banners}
-              onClick={handleCarrosselClick}
-            />
+            {/* Carrossel - mostra apenas quando não há filtros e categoria é "tudo" */}
+            {categoriaAtiva === 'tudo' && Object.keys(filtrosAtivos).length === 0 && (
+              <Carrossel
+                banners={banners}
+                onClick={handleCarrosselClick}
+              />
+            )}
 
             <View style={HomeScreenStyles.sectionContainer}>
-      <Text style={HomeScreenStyles.sectionTitle}>
-        {categoriaAtiva === 'tudo' ? 'Produtos em Destaque' : `Produtos em ${categoriaAtiva}`}
-      </Text>
-      
-      {produtosFiltrados.length > 0 ? (
-        <FlatList
-          data={produtosFiltrados}
-          renderItem={renderProdutoHorizontal}
-          keyExtractor={(item) => `filtered-${item.id}`}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={HomeScreenStyles.produtosContainer}
-          ListEmptyComponent={() => (
-            <View style={{ width: 200, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: theme.colors.gray500 }}>
-                Nenhum produto encontrado
+              <Text style={HomeScreenStyles.sectionTitle}>
+                {categoriaAtiva === 'tudo' && Object.keys(filtrosAtivos).length === 0 
+                  ? 'Produtos em Destaque' 
+                  : categoriaAtiva === 'tudo'
+                    ? 'Produtos Encontrados'
+                    : `Produtos em ${categoriaAtiva}`}
+                {Object.keys(filtrosAtivos).length > 0 && ' (Filtrados)'}
               </Text>
+              
+              {produtosFiltrados.length > 0 ? (
+                <FlatList
+                  data={produtosFiltrados}
+                  renderItem={renderProdutoHorizontal}
+                  keyExtractor={(item) => `filtered-${item.id}`}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={HomeScreenStyles.produtosContainer}
+                  ListEmptyComponent={() => (
+                    <View style={{ width: 200, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ color: theme.colors.gray500 }}>
+                        Nenhum produto encontrado
+                      </Text>
+                    </View>
+                  )}
+                />
+              ) : (
+                <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                  <Text style={{ color: theme.colors.gray500 }}>
+                    Nenhum produto encontrado
+                  </Text>
+                  <Text style={{ color: theme.colors.gray400, fontSize: 12, marginTop: 8 }}>
+                    Tente ajustar os filtros ou buscar outro termo
+                  </Text>
+                </View>
+              )}
             </View>
-          )}
-        />
-      ) : (
-        <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-          <Text style={{ color: theme.colors.gray500 }}>
-            Nenhum produto nesta categoria
-          </Text>
-        </View>
-      )}
-    </View>
 
-    {/* Apenas mostra Novos Anúncios se estiver em "tudo" */}
-    {categoriaAtiva === 'tudo' && (
-      <View style={HomeScreenStyles.sectionContainer}>
-        <Text style={HomeScreenStyles.sectionTitle}>
-          Novos Anúncios
-        </Text>
-        {novosAnuncios.length > 0 ? (
-          <FlatList
-            data={novosAnuncios}
-            renderItem={renderProdutoHorizontal}
-            keyExtractor={(item) => `novo-${item.id}`}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={HomeScreenStyles.produtosContainer}
-          />
-        ) : (
-          <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-            <Text style={{ color: theme.colors.gray500 }}>
-              Nenhum novo anúncio
-            </Text>
-          </View>
-        )}
-      </View>
-    )}
-  </ScrollView>
+            {/* Apenas mostra Novos Anúncios se estiver em "tudo" e sem filtros */}
+            {categoriaAtiva === 'tudo' && Object.keys(filtrosAtivos).length === 0 && (
+              <View style={HomeScreenStyles.sectionContainer}>
+                <Text style={HomeScreenStyles.sectionTitle}>
+                  Novos Anúncios
+                </Text>
+                {novosAnuncios.length > 0 ? (
+                  <FlatList
+                    data={novosAnuncios}
+                    renderItem={renderProdutoHorizontal}
+                    keyExtractor={(item) => `novo-${item.id}`}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={HomeScreenStyles.produtosContainer}
+                  />
+                ) : (
+                  <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                    <Text style={{ color: theme.colors.gray500 }}>
+                      Nenhum novo anúncio
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </ScrollView>
         )}
       </View>
     </View>
