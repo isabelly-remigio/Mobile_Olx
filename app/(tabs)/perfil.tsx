@@ -1,5 +1,4 @@
-// screens/TelaPerfil.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,48 +10,118 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Avatar, Icon, Overlay, Button } from '@rneui/themed';
-import { MaterialIcons } from '@expo/vector-icons';
 import { theme } from '../src/theme/theme';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/app/src/context/AuthContext';
+import { usuarioService, Usuario, AtualizarUsuarioDTO } from '../src/services/usuarioService';
 
 // Tipos
 interface DadosUsuario {
   id: string;
   nome: string;
   email: string;
-  telefone: string;
+  telefone?: string;
+  dataNascimento?: string;
   foto?: string;
   endereco: {
-    rua: string;
-    bairro: string;
-    cidade: string;
-    estado: string;
+    rua?: string;
+    bairro?: string;
+    cidade?: string;
+    estado?: string;
+    cep?: string;
+    logradouro?: string;
+    numero?: string;
+    complemento?: string;
   };
 }
 
 const TelaPerfil: React.FC = () => {
+  const router = useRouter();
+  const { user } = useAuth();
+  
   const [usuario, setUsuario] = useState<DadosUsuario>({
     id: '1',
-    nome: 'Maria Silva',
-    email: 'maria.silva@email.com',
-    telefone: '(81) 98765-4321',
-    foto: undefined,
+    nome: user?.nome || 'Carregando...',
+    email: user?.email || '',
+    telefone: '',
     endereco: {
-      rua: 'Rua das Flores, 123',
-      bairro: 'Capibaribe',
-      cidade: 'São Lourenço da Mata',
-      estado: 'PE',
+      rua: '',
+      bairro: '',
+      cidade: '',
+      estado: '',
     },
   });
 
   const [modalEditarVisivel, setModalEditarVisivel] = useState(false);
   const [dadosEdicao, setDadosEdicao] = useState<DadosUsuario>(usuario);
-const router = useRouter();
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+
+  // Buscar dados do usuário ao carregar a tela
+  useEffect(() => {
+    carregarDadosUsuario();
+  }, []);
+
+  const carregarDadosUsuario = async () => {
+    try {
+      setCarregando(true);
+      console.log('🔄 Carregando dados do usuário...');
+      
+      // Busca dados da API
+      const dadosAPI = await usuarioService.buscarMeusDados();
+      console.log('✅ Dados da API:', dadosAPI);
+      
+      // Formata os dados para o frontend
+      const usuarioFormatado: DadosUsuario = {
+        id: dadosAPI.id.toString(),
+        nome: dadosAPI.nome || user?.nome || 'Usuário',
+        email: dadosAPI.email || user?.email || '',
+        telefone: dadosAPI.telefone ? usuarioService.formatarTelefone(dadosAPI.telefone) : '',
+        dataNascimento: dadosAPI.dataNascimento ? usuarioService.formatarDataNascimento(dadosAPI.dataNascimento) : undefined,
+        endereco: {
+          rua: dadosAPI.endereco?.logradouro || '',
+          bairro: dadosAPI.endereco?.bairro || '',
+          cidade: dadosAPI.endereco?.cidade || '',
+          estado: dadosAPI.endereco?.uf || '',
+          cep: dadosAPI.endereco?.cep || '',
+          logradouro: dadosAPI.endereco?.logradouro || '',
+          numero: dadosAPI.endereco?.numero || '',
+          complemento: dadosAPI.endereco?.complemento || '',
+        },
+      };
+      
+      console.log('📊 Usuário formatado:', usuarioFormatado);
+      setUsuario(usuarioFormatado);
+      
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os dados do perfil.');
+      
+      // Fallback com dados do contexto de autenticação
+      setUsuario({
+        id: '1',
+        nome: user?.nome || 'Usuário',
+        email: user?.email || '',
+        telefone: '',
+        endereco: {
+          rua: '',
+          bairro: '',
+          cidade: '',
+          estado: '',
+        },
+      });
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const voltar = () => {
     console.log('Voltando...');
-    router.back();
+    router.push('/(tabs)/menu');
   };
 
   const compartilhar = () => {
@@ -69,10 +138,66 @@ const router = useRouter();
     setModalEditarVisivel(false);
   };
 
-  const salvarEdicao = () => {
-    setUsuario(dadosEdicao);
-    setModalEditarVisivel(false);
-    console.log('Dados salvos:', dadosEdicao);
+  const salvarEdicao = async () => {
+    try {
+      setSalvando(true);
+      console.log('💾 Salvando dados editados...');
+      
+      // Preparar dados para a API
+      const dadosAPI: AtualizarUsuarioDTO = {
+        nome: dadosEdicao.nome !== usuario.nome ? dadosEdicao.nome : undefined,
+        telefone: dadosEdicao.telefone !== usuario.telefone ? 
+          dadosEdicao.telefone?.replace(/\D/g, '') : undefined,
+        dataNascimento: dadosEdicao.dataNascimento !== usuario.dataNascimento ? 
+          dadosEdicao.dataNascimento?.split('/').reverse().join('-') : undefined,
+        cep: dadosEdicao.endereco.cep !== usuario.endereco.cep ? 
+          dadosEdicao.endereco.cep : undefined,
+        logradouro: dadosEdicao.endereco.logradouro !== usuario.endereco.logradouro ? 
+          dadosEdicao.endereco.logradouro : undefined,
+        numero: dadosEdicao.endereco.numero !== usuario.endereco.numero ? 
+          dadosEdicao.endereco.numero : undefined,
+        bairro: dadosEdicao.endereco.bairro !== usuario.endereco.bairro ? 
+          dadosEdicao.endereco.bairro : undefined,
+        cidade: dadosEdicao.endereco.cidade !== usuario.endereco.cidade ? 
+          dadosEdicao.endereco.cidade : undefined,
+        uf: dadosEdicao.endereco.estado !== usuario.endereco.estado ? 
+          dadosEdicao.endereco.estado : undefined,
+        complemento: dadosEdicao.endereco.complemento !== usuario.endereco.complemento ? 
+          dadosEdicao.endereco.complemento : undefined,
+      };
+      
+      // Remove campos undefined
+      const dadosLimpos = Object.fromEntries(
+        Object.entries(dadosAPI).filter(([_, value]) => value !== undefined)
+      );
+      
+      console.log('📤 Dados para API:', dadosLimpos);
+      
+      // Se não há nada para atualizar, apenas fecha o modal
+      if (Object.keys(dadosLimpos).length === 0) {
+        Alert.alert('Aviso', 'Nenhuma alteração detectada.');
+        setModalEditarVisivel(false);
+        return;
+      }
+      
+      // Chama a API
+      const usuarioAtualizado = await usuarioService.atualizarMeusDados(dadosLimpos);
+      
+      // Atualiza o estado local
+      setUsuario(dadosEdicao);
+      setModalEditarVisivel(false);
+      
+      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
+      
+      // Recarrega os dados da API para garantir sincronização
+      await carregarDadosUsuario();
+      
+    } catch (error) {
+      console.error('❌ Erro ao salvar:', error);
+      Alert.alert('Erro', 'Não foi possível salvar as alterações. Tente novamente.');
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const atualizarCampo = (campo: string, valor: string) => {
@@ -93,10 +218,33 @@ const router = useRouter();
   };
 
   const getIniciais = (nome: string): string => {
-    const partes = nome.trim().split(' ');
-    if (partes.length === 1) return partes[0].charAt(0).toUpperCase();
-    return (partes[0].charAt(0) + partes[partes.length - 1].charAt(0)).toUpperCase();
+    return usuarioService.getIniciais(nome);
   };
+
+  // Tela de loading
+  if (carregando) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={voltar} style={styles.headerButton}>
+            <Icon
+              name="arrow-back"
+              type="material"
+              size={24}
+              color={theme.colors.gray800}
+            />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Perfil</Text>
+          <View style={styles.headerButton} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+          <Text style={styles.loadingText}>Carregando perfil...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -144,18 +292,22 @@ const router = useRouter();
           </View>
 
           {/* Localização */}
-          <View style={styles.infoRow}>
-            <Icon
-              name="location-on"
-              type="material"
-              size={16}
-              color={theme.colors.gray600}
-              containerStyle={styles.infoIcon}
-            />
-            <Text style={styles.infoText}>
-              {usuario.endereco.bairro}, {usuario.endereco.cidade} — {usuario.endereco.estado}
-            </Text>
-          </View>
+          {(usuario.endereco.bairro || usuario.endereco.cidade || usuario.endereco.estado) && (
+            <View style={styles.infoRow}>
+              <Icon
+                name="location-on"
+                type="material"
+                size={16}
+                color={theme.colors.gray600}
+                containerStyle={styles.infoIcon}
+              />
+              <Text style={styles.infoText}>
+                {usuario.endereco.bairro && `${usuario.endereco.bairro}, `}
+                {usuario.endereco.cidade && `${usuario.endereco.cidade} `}
+                {usuario.endereco.estado && `— ${usuario.endereco.estado}`}
+              </Text>
+            </View>
+          )}
 
           {/* Divider */}
           <View style={styles.divider} />
@@ -174,17 +326,19 @@ const router = useRouter();
           </View>
 
           {/* Telefone */}
-          <View style={styles.contactRow}>
-            <View style={styles.statusIndicator} />
-            <Icon
-              name="phone"
-              type="material"
-              size={18}
-              color={theme.colors.gray600}
-              containerStyle={styles.contactIcon}
-            />
-            <Text style={styles.contactText}>{usuario.telefone}</Text>
-          </View>
+          {usuario.telefone && (
+            <View style={styles.contactRow}>
+              <View style={styles.statusIndicator} />
+              <Icon
+                name="phone"
+                type="material"
+                size={18}
+                color={theme.colors.gray600}
+                containerStyle={styles.contactIcon}
+              />
+              <Text style={styles.contactText}>{usuario.telefone}</Text>
+            </View>
+          )}
 
           {/* Botão Editar */}
           <Button
@@ -234,27 +388,26 @@ const router = useRouter();
 
               {/* Campos de Edição */}
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Nome</Text>
+                <Text style={styles.label}>Nome *</Text>
                 <TextInput
                   style={styles.input}
                   value={dadosEdicao.nome}
                   onChangeText={(text) => atualizarCampo('nome', text)}
                   placeholder="Digite seu nome"
                   placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
                 />
               </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>E-mail</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: theme.colors.gray100 }]}
                   value={dadosEdicao.email}
-                  onChangeText={(text) => atualizarCampo('email', text)}
-                  placeholder="Digite seu e-mail"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
+                  editable={false}
                   placeholderTextColor={theme.colors.gray400}
                 />
+                <Text style={styles.inputHint}>E-mail não pode ser alterado</Text>
               </View>
 
               <View style={styles.formGroup}>
@@ -266,6 +419,56 @@ const router = useRouter();
                   placeholder="(XX) XXXXX-XXXX"
                   keyboardType="phone-pad"
                   placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Data de Nascimento</Text>
+                <TextInput
+                  style={styles.input}
+                  value={dadosEdicao.dataNascimento}
+                  onChangeText={(text) => atualizarCampo('dataNascimento', text)}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>CEP</Text>
+                <TextInput
+                  style={styles.input}
+                  value={dadosEdicao.endereco.cep}
+                  onChangeText={(text) => atualizarEndereco('cep', text)}
+                  placeholder="00000-000"
+                  keyboardType="numeric"
+                  placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Logradouro</Text>
+                <TextInput
+                  style={styles.input}
+                  value={dadosEdicao.endereco.logradouro}
+                  onChangeText={(text) => atualizarEndereco('logradouro', text)}
+                  placeholder="Rua, Avenida, etc."
+                  placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Número</Text>
+                <TextInput
+                  style={styles.input}
+                  value={dadosEdicao.endereco.numero}
+                  onChangeText={(text) => atualizarEndereco('numero', text)}
+                  placeholder="Número"
+                  placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
                 />
               </View>
 
@@ -277,6 +480,7 @@ const router = useRouter();
                   onChangeText={(text) => atualizarEndereco('bairro', text)}
                   placeholder="Digite o bairro"
                   placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
                 />
               </View>
 
@@ -288,11 +492,12 @@ const router = useRouter();
                   onChangeText={(text) => atualizarEndereco('cidade', text)}
                   placeholder="Digite a cidade"
                   placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
                 />
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Estado</Text>
+                <Text style={styles.label}>Estado (UF)</Text>
                 <TextInput
                   style={styles.input}
                   value={dadosEdicao.endereco.estado}
@@ -301,6 +506,19 @@ const router = useRouter();
                   maxLength={2}
                   autoCapitalize="characters"
                   placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Complemento</Text>
+                <TextInput
+                  style={styles.input}
+                  value={dadosEdicao.endereco.complemento}
+                  onChangeText={(text) => atualizarEndereco('complemento', text)}
+                  placeholder="Apartamento, bloco, etc."
+                  placeholderTextColor={theme.colors.gray400}
+                  editable={!salvando}
                 />
               </View>
 
@@ -312,13 +530,16 @@ const router = useRouter();
                   buttonStyle={styles.cancelButton}
                   titleStyle={styles.cancelButtonText}
                   containerStyle={styles.buttonContainer}
+                  disabled={salvando}
                 />
                 <Button
-                  title="Salvar"
+                  title={salvando ? "Salvando..." : "Salvar"}
                   onPress={salvarEdicao}
                   buttonStyle={styles.saveButton}
                   titleStyle={styles.saveButtonText}
                   containerStyle={styles.buttonContainer}
+                  loading={salvando}
+                  disabled={salvando}
                 />
               </View>
             </View>
@@ -329,10 +550,30 @@ const router = useRouter();
   );
 };
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.gray50,
+  },
+
+   loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: theme.colors.gray600,
+  },
+  
+  inputHint: {
+    fontSize: 12,
+    color: theme.colors.gray500,
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   
   // Header

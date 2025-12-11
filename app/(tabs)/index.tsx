@@ -21,7 +21,6 @@ import {
   Categoria,
   Banner,
   Produto,
-  Filtro, // ADICIONE ESTE IMPORT
 } from '../src/@types/home';
 
 // Categorias para os ícones
@@ -52,99 +51,54 @@ export default function HomeScreen() {
   const [erro, setErro] = useState<string | null>(null);
   const [filtrosAtivos, setFiltrosAtivos] = useState<FiltrosProduto>({});
 
-  // DEBUG: Adicione este useEffect para monitorar
-  useEffect(() => {
-    console.log('Produtos diversos:', produtosDiversos);
-    console.log('Carregando:', carregando);
-  }, [produtosDiversos, carregando]);
+  useEffect(() => {}, [produtosDiversos, carregando]);
 
-  // Carregar produtos ao iniciar
   useEffect(() => {
-    console.log('=== INICIANDO CARREGAMENTO ===');
     carregarProdutos();
   }, []);
 
-  // Função para carregar todos os produtos
   const carregarProdutos = async () => {
     try {
-      console.log('Chamando API para carregar produtos...');
       setCarregando(true);
       setErro(null);
-      
-      // Busca produtos da API (já transformados pelo serviço)
+
       const produtos = await produtoService.listarTodosAtivos();
-      console.log('Produtos recebidos da API:', produtos.length);
-      
-      // Log dos primeiros produtos para debug
-      produtos.slice(0, 3).forEach((produto, index) => {
-        console.log(`Produto ${index + 1}:`, {
-          id: produto.id,
-          nome: produto.nome, // CORRIGIDO: estava 'titulo'
-          localizacao: produto.localizacao,
-          preco: produto.preco,
-          temImagem: !!produto.imagem,
-          destaque: produto.destaque
-        });
-      });
-      
+
       setProdutosDiversos(produtos);
       setProdutosFiltrados(produtos);
-      
-      console.log('Produtos carregados com sucesso:', produtos.length);
-      
+
     } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
       setErro('Erro ao carregar produtos. Tente novamente.');
-      
-      // Usa fallback se a API falhar
+
       const produtosFallback = getProdutosFallback();
-      console.log('Usando fallback:', produtosFallback.length, 'produtos');
-      
+
       setProdutosDiversos(produtosFallback);
       setProdutosFiltrados(produtosFallback);
     } finally {
       setCarregando(false);
-      console.log('Carregamento finalizado');
     }
   };
 
-  // Quando a categoria muda
   const handleChangeCategoria = async (categoriaId: string) => {
-    console.log('🔘 Usuário clicou na categoria:', categoriaId);
     setCategoriaAtiva(categoriaId);
     setBuscando(false);
-    
+
     try {
       setCarregando(true);
-      
-      // Se for "tudo", mostra todos os produtos
+
       if (categoriaId === 'tudo') {
-        console.log('📊 Mostrando todos os produtos (tudo)');
         setProdutosFiltrados(produtosDiversos);
         return;
       }
-      
-      console.log(`🔄 Buscando produtos da categoria ${categoriaId}...`);
-      
-      // Para outras categorias, busca da API
+
       const produtos = await produtoService.buscarPorCategoria(categoriaId);
-      
-      console.log(`✅ Encontrados ${produtos.length} produtos na categoria ${categoriaId}`);
-      
-      // Verifique se os produtos têm localização
-      produtos.forEach((produto, index) => {
-        console.log(`   ${index + 1}. ${produto.nome} - ${produto.localizacao}`);
-      });
-      
+
       setProdutosFiltrados(produtos);
-      
+
     } catch (error) {
-      console.error('❌ Erro ao buscar por categoria:', error);
-      
-      // Fallback: volta para "tudo"
       setCategoriaAtiva('tudo');
       setProdutosFiltrados(produtosDiversos);
-      
+
       Alert.alert(
         'Categoria vazia',
         'Não há produtos nesta categoria no momento.',
@@ -156,13 +110,11 @@ export default function HomeScreen() {
   };
 
   const handleSearch = useCallback(async (texto: string) => {
-    console.log('🔍 Pesquisando:', texto);
     setTermoPesquisa(texto);
     const estaBuscando = !!texto.trim();
     setBuscando(estaBuscando);
 
     if (!texto.trim() && Object.keys(filtrosAtivos).length === 0) {
-      console.log('📊 Sem texto nem filtros, mostrando todos os produtos');
       setProdutosFiltrados(produtosDiversos);
       return;
     }
@@ -170,54 +122,41 @@ export default function HomeScreen() {
     try {
       setCarregando(true);
       let resultados: Produto[] = [];
-      
-      // Se tem texto OU filtros, faz pesquisa
+
       if (texto.trim() || Object.keys(filtrosAtivos).length > 0) {
-        console.log('🎯 Fazendo pesquisa com:', { texto, filtrosAtivos });
-        
-        // Combina termo de pesquisa com filtros ativos
         const filtrosCombinados: FiltrosProduto = {
           ...filtrosAtivos,
           termo: texto.trim() || undefined
         };
-        
-        // Remove categoria se for "tudo" (já é tratado separadamente)
+
         if (categoriaAtiva === 'tudo' && filtrosCombinados.categoria) {
           delete filtrosCombinados.categoria;
         }
-        
-        // Faz pesquisa avançada
+
         resultados = await produtoService.pesquisarAvancado(filtrosCombinados);
       } else {
-        // Sem texto nem filtros, mostra produtos da categoria atual
         if (categoriaAtiva === 'tudo') {
           resultados = produtosDiversos;
         } else {
           resultados = await produtoService.buscarPorCategoria(categoriaAtiva);
         }
       }
-      
-      console.log(`✅ ${resultados.length} produtos encontrados`);
+
       setProdutosFiltrados(resultados);
-      
+
     } catch (error) {
-      console.error('❌ Erro na pesquisa:', error);
       Alert.alert('Erro', 'Não foi possível realizar a pesquisa');
-      
-      // Fallback: mostra produtos da categoria atual
+
       if (categoriaAtiva === 'tudo') {
         setProdutosFiltrados(produtosDiversos);
       }
+
     } finally {
       setCarregando(false);
     }
   }, [produtosDiversos, filtrosAtivos, categoriaAtiva]);
 
-  // CORREÇÃO: Esta função recebe Filtro (do Modal) e converte para FiltrosProduto (da API)
   const handleFiltrosChange = useCallback(async (filtrosModal: Filtro) => {
-    console.log('⚙️ Filtros alterados (do modal):', filtrosModal);
-    
-    // Converte Filtro do modal para FiltrosProduto (formato da API)
     const filtrosAPI: FiltrosProduto = {
       termo: termoPesquisa || undefined,
       categoria: filtrosModal.categoria || undefined,
@@ -225,15 +164,12 @@ export default function HomeScreen() {
       precoMax: filtrosModal.precoMax || undefined,
       uf: filtrosModal.estado || undefined
     };
-    
-    console.log('📡 Filtros convertidos para API:', filtrosAPI);
+
     setFiltrosAtivos(filtrosAPI);
-    
-    // Se não há termo de pesquisa nem filtros, volta aos produtos normais
+
     const temFiltrosAtivos = Object.values(filtrosAPI).some(valor => valor !== undefined);
-    
+
     if (!termoPesquisa.trim() && !temFiltrosAtivos) {
-      console.log('📊 Sem filtros ativos, mostrando produtos normais');
       if (categoriaAtiva === 'tudo') {
         setProdutosFiltrados(produtosDiversos);
       } else {
@@ -241,38 +177,33 @@ export default function HomeScreen() {
       }
       return;
     }
-    
-    // Aplica os filtros
+
     try {
       setCarregando(true);
-      console.log('🎯 Aplicando filtros na API:', filtrosAPI);
-      
+
       const resultados = await produtoService.pesquisarAvancado(filtrosAPI);
-      console.log(`✅ ${resultados.length} produtos encontrados com filtros`);
-      
+
       setProdutosFiltrados(resultados);
+
     } catch (error) {
-      console.error('❌ Erro ao aplicar filtros:', error);
       Alert.alert('Erro', 'Não foi possível aplicar os filtros');
-      
-      // Fallback: mostra produtos sem filtros
+
       if (categoriaAtiva === 'tudo') {
         setProdutosFiltrados(produtosDiversos);
       } else {
         await handleChangeCategoria(categoriaAtiva);
       }
+
     } finally {
       setCarregando(false);
     }
   }, [termoPesquisa, categoriaAtiva, produtosDiversos]);
 
-  // Função para limpar todos os filtros
   const handleLimparFiltros = useCallback(async () => {
-    console.log('🧹 Limpando todos os filtros');
     setFiltrosAtivos({});
     setTermoPesquisa('');
     setBuscando(false);
-    
+
     if (categoriaAtiva === 'tudo') {
       setProdutosFiltrados(produtosDiversos);
     } else {
@@ -309,7 +240,7 @@ export default function HomeScreen() {
       );
       return;
     }
-    
+
     Alert.alert(
       'Notificações',
       'Você não tem novas notificações no momento.',
@@ -318,8 +249,6 @@ export default function HomeScreen() {
   };
 
   const handleAbrirDetalhesAnuncio = (produtoId: string) => {
-    console.log('Abrindo detalhes do produto:', produtoId);
-    
     if (!user) {
       Alert.alert(
         'Login necessário',
@@ -331,7 +260,7 @@ export default function HomeScreen() {
       );
       return;
     }
-    
+
     router.push(`/(tabs)/anuncio/${produtoId}`);
   };
 
@@ -371,13 +300,6 @@ export default function HomeScreen() {
   );
 
   const renderProdutoHorizontal = ({ item }: { item: Produto }) => {
-    console.log('🎴 Renderizando card para:', {
-      id: item.id,
-      nome: item.nome, // CORRIGIDO: estava item.titulo
-      localizacao: item.localizacao,
-      temNome: !!item.nome
-    });
-    
     return (
       <View style={HomeScreenStyles.produtoWrapper}>
         <CardProduto
@@ -388,21 +310,9 @@ export default function HomeScreen() {
     );
   };
 
-  // Produtos em destaque (filtrando da lista geral)
   const produtosEmDestaque = produtosDiversos.filter((p) => p.destaque);
-  // Produtos mais recentes (últimos 6 produtos)
   const novosAnuncios = produtosDiversos.slice(0, 6);
 
-  console.log('📊 Renderizando HomeScreen:');
-  console.log('- Total produtos:', produtosDiversos.length);
-  console.log('- Produtos destaque:', produtosEmDestaque.length);
-  console.log('- Novos anúncios:', novosAnuncios.length);
-  console.log('- Produtos filtrados:', produtosFiltrados.length);
-  console.log('- Filtros ativos:', filtrosAtivos);
-  console.log('- Buscando:', buscando);
-  console.log('- Categoria ativa:', categoriaAtiva);
-
-  // Tela de loading
   if (carregando && !buscando) {
     return (
       <View style={HomeScreenStyles.container}>
@@ -421,7 +331,6 @@ export default function HomeScreen() {
     );
   }
 
-  // Tela de erro
   if (erro && produtosDiversos.length === 0) {
     return (
       <View style={HomeScreenStyles.container}>
@@ -451,9 +360,9 @@ export default function HomeScreen() {
     );
   }
 
-  // Verifique se deve mostrar contador de resultados
   const deveMostrarResultados = buscando || Object.keys(filtrosAtivos).length > 0;
   const resultadosCount = produtosFiltrados.length;
+
 
   return (
     <View style={HomeScreenStyles.container}>

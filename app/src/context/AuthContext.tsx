@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [personalData, setPersonalData] = useState<PersonalData | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const API_URL = 'http://167.71.123.166:8080/api'; //BASE URL DA API
+  const API_URL = 'http://localhost:8080/api'; //BASE URL DA API
   const [verificationLoading, setVerificationLoading] = useState(false);
 
   const verifyEmail = async (email: string, code: string) => {
@@ -270,7 +270,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 };
 
-  const signIn = async (email: string, password: string) => {
+ const signIn = async (email: string, password: string) => {
   setLoading(true);
   try {
     console.log('Tentando login com:', { 
@@ -295,17 +295,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const data = await response.json();
-    console.log('Resposta do login:', { ...data, token: data.token ? '***' : null });
+    console.log('Resposta do login COMPLETA:', data);
 
     if (data.token) {
+      // DEBUG: Mostrar TODAS as chaves da resposta
+      console.log('Todas as chaves da resposta:', Object.keys(data));
+      
+      // O nome está em 'nomeUsuario', não em 'nome'!
+      const nome = 
+        data.nomeUsuario ||  // PRIMEIRO TENTA 'nomeUsuario' ← ESTE É O CORRETO!
+        data.nome ||         // depois tenta 'nome' (que é o email)
+        data.name ||         // depois 'name' (inglês)
+        email.split('@')[0]; // fallback
+      
+      console.log('Nome encontrado:', nome, '(de nomeUsuario:', data.nomeUsuario, ')');
+      
       const userData = {
         id: data.user?.id || data.id || Date.now().toString(),
-        nome: data.user?.nome || email.split('@')[0],
-        email: data.user?.email || email,
-        telefone: data.user?.telefone,
-        dataNascimento: data.user?.dataNascimento,
+        nome: nome, // ← AGORA COM O NOME CORRETO 'isa'
+        email: email,
+        telefone: data.telefone,
+        dataNascimento: data.dataNascimento,
       };
 
+      console.log('UserData salvo:', userData);
+      
       await AsyncStorage.setItem('@Auth:token', data.token);
       await AsyncStorage.setItem('@Auth:user', JSON.stringify(userData));
       setUser(userData);
@@ -317,7 +331,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   } catch (error: any) {
     console.error('Erro no login:', error);
     
-    // Mensagens de erro mais amigáveis
     let errorMessage = error.message || 'Erro ao fazer login. Tente novamente.';
     
     if (error.message.includes('credenciais') || 
@@ -335,7 +348,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }
 };
-
   const signOut = async () => {
     try {
       await AsyncStorage.multiRemove(['@Auth:token', '@Auth:user']);

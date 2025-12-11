@@ -14,7 +14,7 @@ import { Avatar, Icon, Overlay, Button } from '@rneui/themed';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { theme } from '../src/theme/theme';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Tipos
 interface ItemMenu {
   id: string;
@@ -39,6 +39,15 @@ const TelaMenu: React.FC = () => {
       );
     }
   }, [user, loading, router]);
+
+  // screens/TelaMenu.tsx
+useEffect(() => {
+  const checkStoredUser = async () => {
+    const storedUser = await AsyncStorage.getItem('@Auth:user');
+    console.log('Usuário no AsyncStorage:', storedUser);
+  };
+  checkStoredUser();
+}, []);
 
   const navegarParaPerfil = () => {
     router.push('/perfil');
