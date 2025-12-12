@@ -363,7 +363,7 @@ const handleAbrirDetalhesAnuncio = (produtoId: string) => {
 <BarraPesquisa
   placeholder="O que você está procurando?"
   onSearch={handleSearch}
-  onFiltrosChange={handleFiltrosChange} // Esta função já está corrigida
+  onFiltrosChange={handleFiltrosChange}
   resultadosCount={(buscando || Object.keys(filtrosAtivos).length > 0) ? produtosFiltrados.length : 0}
   mostrarResultadosVazios={(buscando || Object.keys(filtrosAtivos).length > 0) && produtosFiltrados.length === 0}
 />
@@ -542,6 +542,5 @@ function getProdutosFallback(): Produto[] {
     },
   ];
   
-  console.log('Fallback gerado com', produtos.length, 'produtos');
   return produtos;
 }

@@ -114,7 +114,7 @@ export function transformarProdutoAPI(produtoAPI: ProdutoAPI): Produto {
     descricao: produtoAPI.descricao,
     preco: produtoAPI.preco,
     localizacao: `${produtoAPI.vendedor.endereco.cidade}, ${produtoAPI.vendedor.endereco.uf}`,
-    destaque: produtoAPI.status === 'ATIVO', // Ou alguma lógica para destaque
+    destaque: produtoAPI.status === 'ATIVO',
     imagem: produtoAPI.imagem,
     categoria: produtoAPI.categoriaProduto,
     condicao: produtoAPI.condicao,
@@ -127,27 +127,30 @@ export function transformarProdutoAPI(produtoAPI: ProdutoAPI): Produto {
   };
 }
 
+// IMPORTANTE: Para navegador web, use localhost normalmente
+// Mas para evitar problemas de CORS, verifique se o backend permite a origem do seu app
+const IMAGEM_BASE_URL = 'http://localhost:8080'; // Para navegador
 
 export const produtoService = {
   // Listar todos os produtos ativos
-async listarTodosAtivos(): Promise<Produto[]> {
-  try {
-    console.log('🔍 Chamando API /produtos...');
-    const response = await publicApi.get('/produtos');
-    console.log('📦 Dados brutos da API:', response.data);
-    
-    // TRANSFORME os dados como nas outras funções
-    const produtosTransformados = response.data.map((produtoBackend: any) => 
-      this.transformarProduto(produtoBackend)
-    );
-    
-    console.log('✨ Produtos transformados:', produtosTransformados);
-    return produtosTransformados;
-  } catch (error) {
-    console.error('Erro ao listar produtos:', error);
-    throw error;
-  }
-},
+  async listarTodosAtivos(): Promise<Produto[]> {
+    try {
+      console.log('🔍 Chamando API /produtos...');
+      const response = await publicApi.get('/produtos');
+      console.log('📦 Dados brutos da API:', response.data);
+      
+      const produtosTransformados = response.data.map((produtoBackend: any) => 
+        this.transformarProduto(produtoBackend)
+      );
+      
+      console.log('✨ Produtos transformados:', produtosTransformados);
+      return produtosTransformados;
+    } catch (error) {
+      console.error('Erro ao listar produtos:', error);
+      throw error;
+    }
+  },
+  
   // Pesquisar produtos simples
   async pesquisarProdutos(termo: string): Promise<Produto[]> {
     try {
@@ -159,7 +162,6 @@ async listarTodosAtivos(): Promise<Produto[]> {
       
       console.log(`✅ Resultados da pesquisa: ${response.data.length} produtos`);
       
-      // Transforma os produtos
       return response.data.map((produtoBackend: any) => 
         this.transformarProduto(produtoBackend)
       );
@@ -174,7 +176,6 @@ async listarTodosAtivos(): Promise<Produto[]> {
     try {
       console.log('🎯 Pesquisa avançada com filtros:', filtros);
       
-      // Remove filtros vazios/undefined
       const params: any = {};
       
       if (filtros.termo && filtros.termo.trim()) {
@@ -199,12 +200,10 @@ async listarTodosAtivos(): Promise<Produto[]> {
       
       console.log('📡 Parâmetros da pesquisa:', params);
       
-      // Faz a requisição
       const response = await publicApi.get('/produtos/pesquisar-avancado', { params });
       
       console.log(`✅ Resultados: ${response.data.length} produtos`);
       
-      // Transforma os produtos
       return response.data.map((produtoBackend: any) => 
         this.transformarProduto(produtoBackend)
       );
@@ -213,7 +212,6 @@ async listarTodosAtivos(): Promise<Produto[]> {
       throw error;
     }
   },
-
 
   // Buscar detalhes de um produto
   async visualizarDetalhes(id: number): Promise<Produto> {
@@ -226,117 +224,146 @@ async listarTodosAtivos(): Promise<Produto[]> {
     }
   },
 
-// Listar por categoria específica (usando rota /categoria/{categoria})
-async listarPorCategoria(categoriaBackend: string): Promise<Produto[]> {
-  try {
-    console.log(`📡 Chamando API: /produtos/categoria/${categoriaBackend}`);
-    const response = await publicApi.get(`/produtos/categoria/${categoriaBackend}`);
-    
-    console.log(`📦 Resposta da API para categoria ${categoriaBackend}:`, response.data);
-    
-    // Transforma os produtos
-    const produtosTransformados = response.data.map((produtoBackend: any) => 
-      this.transformarProduto(produtoBackend)
-    );
-    
-    console.log(`✨ ${produtosTransformados.length} produtos transformados`);
-    return produtosTransformados;
-  } catch (error) {
-    console.error(`❌ Erro ao listar por categoria ${categoriaBackend}:`, error);
-    throw error;
-  }
-},
-
- // No produtoService, ajuste o método buscarPorCategoria:
-async buscarPorCategoria(categoriaId: string): Promise<Produto[]> {
-  console.log(`🎯 Buscando por categoria ID do frontend: ${categoriaId}`);
-  
-  // Encontra a categoria no mapeamento
-  const categoriaFrontend = CATEGORIAS_FRONTEND.find(cat => cat.id === categoriaId);
-  
-  console.log('📋 Categoria frontend encontrada:', categoriaFrontend);
-  
-  if (!categoriaFrontend || categoriaFrontend.id === 'tudo') {
-    console.log('📦 Categoria "tudo" selecionada, retornando todos os produtos');
-    return this.listarTodosAtivos();
-  }
-
-  // Verifica se tem o valor do backend
-  if (categoriaFrontend.backendValue) {
-    console.log(`🔄 Convertendo para backend: ${categoriaFrontend.backendValue}`);
-    
+  // Listar por categoria específica
+  async listarPorCategoria(categoriaBackend: string): Promise<Produto[]> {
     try {
-      // Tenta usar a rota específica de categoria
-      const produtos = await this.listarPorCategoria(categoriaFrontend.backendValue);
-      console.log(`✅ ${produtos.length} produtos retornados da categoria ${categoriaFrontend.backendValue}`);
-      return produtos;
-    } catch (error) {
-      console.log(`⚠️ Rota específica falhou:`, error);
+      console.log(`📡 Chamando API: /produtos/categoria/${categoriaBackend}`);
+      const response = await publicApi.get(`/produtos/categoria/${categoriaBackend}`);
       
-      // Fallback: tenta pesquisa avançada
-      console.log(`🔄 Tentando pesquisa avançada como fallback...`);
+      console.log(`📦 Resposta da API para categoria ${categoriaBackend}:`, response.data);
+      
+      const produtosTransformados = response.data.map((produtoBackend: any) => 
+        this.transformarProduto(produtoBackend)
+      );
+      
+      console.log(`✨ ${produtosTransformados.length} produtos transformados`);
+      return produtosTransformados;
+    } catch (error) {
+      console.error(`❌ Erro ao listar por categoria ${categoriaBackend}:`, error);
+      throw error;
+    }
+  },
+
+  // Buscar por categoria do frontend
+  async buscarPorCategoria(categoriaId: string): Promise<Produto[]> {
+    console.log(`🎯 Buscando por categoria ID do frontend: ${categoriaId}`);
+    
+    const categoriaFrontend = CATEGORIAS_FRONTEND.find(cat => cat.id === categoriaId);
+    
+    console.log('📋 Categoria frontend encontrada:', categoriaFrontend);
+    
+    if (!categoriaFrontend || categoriaFrontend.id === 'tudo') {
+      console.log('📦 Categoria "tudo" selecionada, retornando todos os produtos');
+      return this.listarTodosAtivos();
+    }
+
+    if (categoriaFrontend.backendValue) {
+      console.log(`🔄 Convertendo para backend: ${categoriaFrontend.backendValue}`);
+      
       try {
-        const produtos = await this.pesquisarAvancado({
-          categoria: categoriaFrontend.backendValue
-        });
-        console.log(`✅ ${produtos.length} produtos retornados (fallback)`);
+        const produtos = await this.listarPorCategoria(categoriaFrontend.backendValue);
+        console.log(`✅ ${produtos.length} produtos retornados da categoria ${categoriaFrontend.backendValue}`);
         return produtos;
-      } catch (fallbackError) {
-        console.log(`❌ Fallback também falhou:`, fallbackError);
-        throw fallbackError;
+      } catch (error) {
+        console.log(`⚠️ Rota específica falhou:`, error);
+        
+        try {
+          const produtos = await this.pesquisarAvancado({
+            categoria: categoriaFrontend.backendValue
+          });
+          console.log(`✅ ${produtos.length} produtos retornados (fallback)`);
+          return produtos;
+        } catch (fallbackError) {
+          console.log(`❌ Fallback também falhou:`, fallbackError);
+          throw fallbackError;
+        }
       }
     }
-  }
 
-  console.log('⚠️ Categoria sem backendValue, retornando todos os produtos');
-  return this.listarTodosAtivos();
-},
+    console.log('⚠️ Categoria sem backendValue, retornando todos os produtos');
+    return this.listarTodosAtivos();
+  },
 
- transformarProduto(produtoBackend: any): Produto {
-  console.log('🔄 Transformando produto backend:', {
-    id: produtoBackend.id,
-    nome: produtoBackend.nome,
-    temVendedor: !!produtoBackend.vendedor,
-    temEndereco: !!produtoBackend.vendedor?.endereco,
-    cidade: produtoBackend.vendedor?.endereco?.cidade,
-    uf: produtoBackend.vendedor?.endereco?.uf
-  });
+  transformarProduto(produtoBackend: any): Produto {
+    console.log('🔄 Transformando produto backend:', {
+      id: produtoBackend.id,
+      nome: produtoBackend.nome,
+      imagemField: produtoBackend.imagem, // Verifique este campo
+      temVendedor: !!produtoBackend.vendedor,
+      temEndereco: !!produtoBackend.vendedor?.endereco,
+      cidade: produtoBackend.vendedor?.endereco?.cidade,
+      uf: produtoBackend.vendedor?.endereco?.uf
+    });
 
-  // CORREÇÃO: Use 'nome' em vez de 'titulo'
-  const produtoTransformado: Produto = {
-    id: produtoBackend.id.toString(),
-    nome: produtoBackend.nome, // AGORA É 'nome' em vez de 'titulo'
-    descricao: produtoBackend.descricao || '',
-    preco: produtoBackend.preco || 0,
-    localizacao: produtoBackend.vendedor?.endereco?.cidade 
-      ? `${produtoBackend.vendedor.endereco.cidade}, ${produtoBackend.vendedor.endereco.uf}`
-      : 'Localização não informada',
-    destaque: produtoBackend.status === 'ATIVO',
-    imagem: produtoBackend.imagem 
-      ? this.getImagemUrl(produtoBackend.imagem)
-      : 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=170&h=100&fit=crop',
-    categoria: produtoBackend.categoriaProduto,
-    condicao: produtoBackend.condicao,
-    dataPublicacao: produtoBackend.dataPublicacao,
-    vendedor: {
-      id: produtoBackend.vendedor?.id,
-      nome: produtoBackend.vendedor?.nome || 'Vendedor',
-      telefone: produtoBackend.vendedor?.telefone,
+    // CORREÇÃO CRÍTICA: Verifique como a imagem está vindo do backend
+    let imagemUrl = '';
+    
+    if (produtoBackend.imagem) {
+      // Se já for uma URL completa, use-a
+      if (produtoBackend.imagem.startsWith('http')) {
+        imagemUrl = produtoBackend.imagem;
+      } 
+      // Se for só o nome do arquivo, construa a URL
+      else if (typeof produtoBackend.imagem === 'string') {
+        imagemUrl = this.getImagemUrl(produtoBackend.imagem);
+      }
+      // Se for um objeto (como às vezes o Spring Boot retorna)
+      else if (produtoBackend.imagem && typeof produtoBackend.imagem === 'object') {
+        // Tente extrair o nome do arquivo do objeto
+        const imagemObj = produtoBackend.imagem;
+        const nomeArquivo = imagemObj.nomeArquivo || imagemObj.filename || imagemObj.name || imagemObj.url;
+        if (nomeArquivo) {
+          imagemUrl = this.getImagemUrl(nomeArquivo);
+        }
+      }
     }
-  };
 
-  console.log('✅ Produto transformado:', {
-    nome: produtoTransformado.nome,
-    localizacao: produtoTransformado.localizacao,
-    imagem: produtoTransformado.imagem
-  });
+    console.log('🖼️ URL da imagem gerada:', imagemUrl);
 
-  return produtoTransformado;
-},
-  // Gerar URL da imagem
+    const produtoTransformado: Produto = {
+      id: produtoBackend.id.toString(),
+      nome: produtoBackend.nome,
+      descricao: produtoBackend.descricao || '',
+      preco: produtoBackend.preco || 0,
+      localizacao: produtoBackend.vendedor?.endereco?.cidade 
+        ? `${produtoBackend.vendedor.endereco.cidade}, ${produtoBackend.vendedor.endereco.uf}`
+        : 'Localização não informada',
+      destaque: produtoBackend.status === 'ATIVO',
+      imagem: imagemUrl || 'https://via.placeholder.com/170x100?text=Sem+Imagem',
+      categoria: produtoBackend.categoriaProduto,
+      condicao: produtoBackend.condicao,
+      dataPublicacao: produtoBackend.dataPublicacao,
+      vendedor: {
+        id: produtoBackend.vendedor?.id,
+        nome: produtoBackend.vendedor?.nome || 'Vendedor',
+        telefone: produtoBackend.vendedor?.telefone,
+      }
+    };
+
+    console.log('✅ Produto transformado:', {
+      nome: produtoTransformado.nome,
+      localizacao: produtoTransformado.localizacao,
+      imagem: produtoTransformado.imagem
+    });
+
+    return produtoTransformado;
+  },
+
+  // Gerar URL da imagem - CORRIGIDO
   getImagemUrl(nomeArquivo: string): string {
-    if (!nomeArquivo) return 'https://via.placeholder.com/170x100?text=Sem+Imagem';
-    return `http://localhost:8080/api/produtos/imagens/${nomeArquivo}`;
+    console.log('📁 Nome do arquivo recebido:', nomeArquivo);
+    
+    if (!nomeArquivo || nomeArquivo.trim() === '') {
+      console.log('⚠️ Nome do arquivo vazio, retornando placeholder');
+      return 'https://via.placeholder.com/170x100?text=Sem+Imagem';
+    }
+    
+    // Remove espaços extras e constrói a URL
+    const arquivoLimpo = nomeArquivo.trim();
+    const imagemUrl = `${IMAGEM_BASE_URL}/api/produtos/imagens/${arquivoLimpo}`;
+    
+    console.log('🔗 URL da imagem gerada:', imagemUrl);
+    return imagemUrl;
   },
 
   // Métodos auxiliares para categorias

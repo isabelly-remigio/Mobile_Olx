@@ -1,66 +1,154 @@
-// components/ui/CardProdutoRNE.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, Pressable } from 'react-native';
 import { Icon } from '@rneui/themed';
 import { CardProdutoProps } from '../../@types/home';
 import { formatarPreco } from '../../utils/formatters';
 import { useFavoritos } from '../../hooks/useFavoritos';
-import { CardProdutoStyles, CardProdutoConstants } from '../../styles/components/CardProdutoStyles';
 
 const CardProduto = ({ produto, onPress }: CardProdutoProps) => {
   const { toggleFavorito, isFavorito } = useFavoritos();
-  const favorito = isFavorito(produto.id);
+  const [favoritoLocal, setFavoritoLocal] = useState(false);
+
+  useEffect(() => {
+    setFavoritoLocal(isFavorito(produto.id));
+  }, [produto.id, isFavorito]);
 
   const handleToggleFavorito = (event: any) => {
     event.stopPropagation();
+    const novoEstado = !favoritoLocal;
+    setFavoritoLocal(novoEstado);
     toggleFavorito(produto.id);
   };
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [
-      CardProdutoStyles.cardContainer,
-      pressed && CardProdutoStyles.pressedContainer,
-    ]}>
-      <View style={CardProdutoStyles.imageContainer}>
-        <Image source={{ uri: produto.imagem }} style={CardProdutoStyles.imagem} />
+    <Pressable 
+      onPress={onPress}
+      style={{
+        width: 170,
+        backgroundColor: 'white',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        marginRight: 12,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 2,
+      }}
+    >
+      {/* IMAGEM */}
+      <View style={{ height: 120, position: 'relative' }}>
+        <Image 
+          source={{ 
+            uri: produto.imagem || 'https://via.placeholder.com/170x120?text=Produto'
+          }} 
+          style={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+        />
         
         {produto.destaque && (
-          <View style={CardProdutoStyles.destaqueBadge}>
-            <Text style={CardProdutoStyles.destaqueText}>DESTAQUE</Text>
+          <View style={{
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            backgroundColor: '#7C3AED',
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+            borderRadius: 4,
+          }}>
+            <Text style={{ fontSize: 10, color: 'white', fontWeight: 'bold' }}>
+              DESTAQUE
+            </Text>
           </View>
         )}
         
-        <Pressable onPress={handleToggleFavorito} style={CardProdutoStyles.favoritoButton}>
+        <Pressable 
+          onPress={handleToggleFavorito}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: 15,
+            padding: 4,
+          }}
+        >
           <Icon
-            name={favorito ? 'favorite' : 'favorite-border'}
+            name={favoritoLocal ? 'favorite' : 'favorite-border'}
             type="material"
-            size={CardProdutoConstants.iconSizes.favorito}
-            color={favorito ? CardProdutoConstants.colors.red500 : CardProdutoConstants.colors.white}
+            size={20}
+            color={favoritoLocal ? '#EF4444' : 'white'}
           />
         </Pressable>
       </View>
       
-      <View style={CardProdutoStyles.contentContainer}>
-        <Text style={CardProdutoStyles.titulo} numberOfLines={2}>
+      {/* CONTEÚDO - LAYOUT FLEXÍVEL */}
+      <View style={{ padding: 12, flex: 1 }}>
+        {/* TÍTULO (altura fixa) */}
+        <Text 
+          style={{
+            fontSize: 14,
+            fontWeight: '600',
+            color: '#1F2937',
+            lineHeight: 18,
+            height: 36,
+            overflow: 'hidden',
+          }}
+          numberOfLines={2}
+        >
           {produto.nome}
         </Text>
         
-        <Text style={CardProdutoStyles.preco}>
+        {/* PREÇO */}
+        <Text 
+          style={{
+            fontSize: 18,
+            fontWeight: 'bold',
+            color: '#10B981',
+            marginTop: 4,
+            marginBottom: 2,
+          }}
+        >
           {formatarPreco(produto.preco)}
         </Text>
         
-        <Text style={CardProdutoStyles.descricao} numberOfLines={2}>
-          {produto.condicao}
-        </Text>
+        {/* CONDIÇÃO (se existir) */}
+        {produto.condicao && (
+          <Text 
+            style={{
+              fontSize: 12,
+              color: '#6B7280',
+              marginBottom: 2,
+            }}
+            numberOfLines={1}
+          >
+            {produto.condicao}
+          </Text>
+        )}
         
-        <View style={CardProdutoStyles.localizacaoContainer}>
+        {/* LOCALIZAÇÃO (sempre na base) */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 'auto',
+          paddingTop: 4,
+        }}>
           <Icon
             name="location-on"
             type="material"
-            size={CardProdutoConstants.iconSizes.localizacao}
-            color={CardProdutoConstants.colors.gray500}
+            size={12}
+            color="#6B7280"
           />
-          <Text style={CardProdutoStyles.localizacaoText} numberOfLines={1}>
+          <Text 
+            style={{
+              fontSize: 12,
+              color: '#6B7280',
+              marginLeft: 4,
+              flex: 1,
+            }}
+            numberOfLines={1}
+          >
             {produto.localizacao}
           </Text>
         </View>

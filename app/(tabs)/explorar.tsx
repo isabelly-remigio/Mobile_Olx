@@ -186,7 +186,7 @@ const TelaPesquisa: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
+      <StatusBar  backgroundColor={theme.colors.white} />
       
       <BarraPesquisa
         placeholder="Buscar produtos..."
