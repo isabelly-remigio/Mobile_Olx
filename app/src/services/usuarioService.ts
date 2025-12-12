@@ -8,23 +8,36 @@ export interface Usuario {
   cpfCnpj?: string;
   telefone?: string;
   dataNascimento?: string;
-  endereco?: {
-    cep?: string;
-    logradouro?: string;
-    numero?: string;
-    bairro?: string;
-    cidade?: string;
-    uf?: string;
-    complemento?: string;
-  };
+  
+  // ❌ REMOVA esta parte (não existe na API)
+  // endereco?: {
+  //   cep?: string;
+  //   logradouro?: string;
+  //   numero?: string;
+  //   bairro?: string;
+  //   cidade?: string;
+  //   uf?: string;
+  //   complemento?: string;
+  // };
+  
+  // ✅ ADICIONE estas propriedades no nível raiz (igual a API)
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  uf?: string;
+  complemento?: string;
+  
   roles?: string[];
   possuiCredenciaisMercadoPago?: boolean;
 }
-
+// services/usuarioService.ts
 export interface AtualizarUsuarioDTO {
   nome?: string;
   telefone?: string;
   dataNascimento?: string;
+  // ✅ MUDAR: endereço no nível raiz
   cep?: string;
   logradouro?: string;
   numero?: string;
@@ -35,41 +48,35 @@ export interface AtualizarUsuarioDTO {
 }
 
 export const usuarioService = {
-  // Buscar dados do usuário logado
-  async buscarMeusDados(): Promise<Usuario> {
-    try {
-      console.log('👤 Buscando dados do usuário...');
-      const response = await apiService.get('/usuarios/me');
-      console.log('✅ Dados do usuário:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Erro ao buscar dados do usuário:', error);
-      throw error;
-    }
-  },
+async buscarMeusDados(): Promise<Usuario> {
+  try {
+    let response;
 
-  // Atualizar dados do usuário
-  async atualizarMeusDados(dados: AtualizarUsuarioDTO): Promise<Usuario> {
     try {
-      console.log('✏️ Atualizando dados do usuário:', dados);
-      
-      // Remove campos undefined/vazios
-      const dadosLimpos = Object.fromEntries(
-        Object.entries(dados).filter(([_, value]) => 
-          value !== undefined && value !== null && value !== ''
-        )
-      );
-      
-      console.log('📤 Dados enviados:', dadosLimpos);
-      
-      const response = await apiService.put('/usuarios/me', dadosLimpos);
-      console.log('✅ Usuário atualizado:', response);
-      return response;
-    } catch (error) {
-      console.error('❌ Erro ao atualizar usuário:', error);
-      throw error;
+      response = await apiService.get<Usuario>('/usuarios/me');
+    } catch (error: any) {
+      if (error.response?.status === 403 || error.response?.status === 404) {
+        response = await apiService.get<Usuario>('/usuario/me');
+      } else {
+        throw error;
+      }
     }
-  },
+
+    return response; // <-- CORREÇÃO AQUI
+  } catch (error) {
+    throw error;
+  }
+},
+
+
+async atualizarMeusDados(dados: AtualizarUsuarioDTO): Promise<Usuario> {
+  try {
+    const response = await apiService.put<Usuario>('/usuarios/me', dados);
+    return response; // <-- CORREÇÃO AQUI
+  } catch (error) {
+    throw error;
+  }
+},
 
   // Formatar telefone
   formatarTelefone(telefone: string): string {

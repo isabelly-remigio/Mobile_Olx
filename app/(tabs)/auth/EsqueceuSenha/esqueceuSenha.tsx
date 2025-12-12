@@ -7,15 +7,18 @@ import {
   KeyboardAvoidingView, 
   Platform,
   Alert,
-  SafeAreaView 
+  SafeAreaView
 } from 'react-native';
 import { Button, Icon } from '@rneui/themed';
 import { useRouter } from 'expo-router';
+import { apiService } from '@/app/src/services/api';
 import styles from '@/app/src/styles/EsqueceuSenha/TelaEsqueciSenhaStyles';
 
 const TelaEsqueciSenha = () => {
   const router = useRouter(); 
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [emailEnviado, setEmailEnviado] = useState(false);
 
   const validarEmail = (email: string) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,22 +28,141 @@ const TelaEsqueciSenha = () => {
   const emailValido = validarEmail(email);
 
   const voltar = () => {
-    router.push('/auth/Login/login');
+    router.replace('/auth/Login/login');
   };
 
-  const enviarEmail = () => {
-    if (emailValido) {
-      Alert.alert('Sucesso', `E-mail de recuperação enviado para ${email}`);
+  const enviarEmail = async () => {
+    if (!emailValido) {
+      Alert.alert('Erro', 'Por favor, insira um e-mail válido.');
+      return;
     }
-    router.push('/auth/Verificacao/verificacao');
-  };
 
-  const handleSubmitEditing = () => {
-    if (emailValido) {
-      enviarEmail();
+    try {
+      setLoading(true);
+      await apiService.post('/auth/esqueci-senha', {
+        email: email.toLowerCase().trim()
+      });
+      setEmailEnviado(true);
+      
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        Alert.alert('E-mail não encontrado', 'Este e-mail não está cadastrado.');
+      } else {
+        Alert.alert('Erro', 'Não foi possível enviar o e-mail.');
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
+  const irParaRedefinirSenha = () => {
+    router.push({
+      pathname: '/auth/EsqueceuSenha/redefinir-senha',
+      params: { email }
+    });
+  };
+
+  // TELA DE SUCESSO - SIMPLES
+  if (emailEnviado) {
+    return (
+      <SafeAreaView style={[styles.container, { padding: 20 }]}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          
+          {/* Ícone simples */}
+          <Icon 
+            name="check-circle" 
+            type="material" 
+            color="#10B981" 
+            size={64}
+            style={{ marginBottom: 24 }}
+          />
+          
+          {/* Título simples */}
+          <Text style={{ 
+            fontSize: 22, 
+            fontWeight: '600', 
+            color: '#1F2937',
+            textAlign: 'center',
+            marginBottom: 8
+          }}>
+            E-mail enviado
+          </Text>
+          
+          {/* Mensagem simples */}
+          <Text style={{ 
+            fontSize: 16, 
+            color: '#6B7280',
+            textAlign: 'center',
+            marginBottom: 32,
+            lineHeight: 24
+          }}>
+            Enviamos um token de 6 dígitos para:
+          </Text>
+          
+          {/* E-mail destacado */}
+          <View style={{ 
+            backgroundColor: '#F3F4F6', 
+            padding: 16,
+            borderRadius: 8,
+            marginBottom: 32,
+            alignSelf: 'stretch'
+          }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '500', 
+              color: '#374151',
+              textAlign: 'center'
+            }}>
+              {email}
+            </Text>
+          </View>
+          
+          {/* Instrução única */}
+          <Text style={{ 
+            fontSize: 14, 
+            color: '#6B7280',
+            textAlign: 'center',
+            marginBottom: 32
+          }}>
+            Verifique sua caixa de entrada e use o token para continuar.
+          </Text>
+          
+          {/* Botão único */}
+          <Button
+            title="Continuar"
+            buttonStyle={{
+              backgroundColor: '#3B82F6',
+              borderRadius: 8,
+              paddingVertical: 16,
+              paddingHorizontal: 32
+            }}
+            titleStyle={{
+              fontSize: 16,
+              fontWeight: '600'
+            }}
+            onPress={irParaRedefinirSenha}
+            containerStyle={{ alignSelf: 'stretch' }}
+          />
+          
+          {/* Opção de reenviar */}
+          <TouchableOpacity 
+            style={{ marginTop: 24 }}
+            onPress={enviarEmail}
+          >
+            <Text style={{ 
+              color: '#3B82F6',
+              fontSize: 14
+            }}>
+              Reenviar e-mail
+            </Text>
+          </TouchableOpacity>
+          
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // TELA ORIGINAL - TAMBÉM SIMPLIFICADA
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -48,72 +170,58 @@ const TelaEsqueciSenha = () => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <SafeAreaView style={styles.safeArea}>
-        {/* Header com navegação */}
+        {/* Header limpo */}
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={voltar}
-          >
-            <Icon 
-              name="arrow-back" 
-              type="material" 
-              color="#374151" // gray.700
-              size={24}
-            />
+          <TouchableOpacity onPress={voltar}>
+            <Icon name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
-          
-          <Text style={styles.headerTitle}>
-            Esqueci minha senha
-          </Text>
-          
-          <View style={styles.headerPlaceholder} />
+          <Text style={styles.headerTitle}>Esqueci minha senha</Text>
+          <View style={{ width: 24 }} />
         </View>
 
-        <View style={styles.content}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.mainTitle}>
-              Qual o e-mail da conta?
-            </Text>
-            <Text style={styles.subtitle}>
-              Um e-mail de confirmação será enviado para criar sua nova senha.
-            </Text>
-          </View>
+        {/* Conteúdo limpo */}
+        <View style={[styles.content, { paddingHorizontal: 20 }]}>
+          <Text style={[styles.mainTitle, { marginBottom: 8 }]}>
+            Digite seu e-mail
+          </Text>
+          <Text style={[styles.subtitle, { marginBottom: 32 }]}>
+            Enviaremos um token para redefinir sua senha
+          </Text>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>
-              E-mail
-            </Text>
+          <View>
+            <Text style={styles.inputLabel}>E-mail</Text>
             <TextInput
-              style={styles.input}
-              placeholder=""
-              placeholderTextColor="#9CA3AF"
+              style={[
+                styles.input,
+                email && !emailValido && styles.inputError
+              ]}
+              placeholder="seu@email.com"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus={true}
-              returnKeyType="done"
-              onSubmitEditing={handleSubmitEditing}
+              editable={!loading}
             />
+            {email && !emailValido && (
+              <Text style={styles.errorText}>
+                Digite um e-mail válido
+              </Text>
+            )}
           </View>
         </View>
 
-        <View style={styles.footer}>
+        {/* Footer limpo */}
+        <View style={[styles.footer, { padding: 20 }]}>
           <Button
-            title="Enviar e-mail"
+            title={loading ? "Enviando..." : "Enviar"}
             buttonStyle={[
               styles.submitButton, 
-              !emailValido && styles.disabledButton
-            ]}
-            titleStyle={[
-              styles.submitButtonText, 
-              !emailValido && styles.disabledButtonText
+              (!emailValido || loading) && styles.disabledButton
             ]}
             onPress={enviarEmail}
-            disabled={!emailValido}
-            disabledStyle={styles.disabledButton}
-            disabledTitleStyle={styles.disabledButtonText}
+            disabled={!emailValido || loading}
+            loading={loading}
+            containerStyle={{ width: '100%' }}
           />
         </View>
       </SafeAreaView>

@@ -72,6 +72,14 @@ export default StyleSheet.create({
     paddingVertical: 12,
     color: theme.colors.gray900,
   },
+    inputError: {
+    borderColor: '#EF4444',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: 4,
+  },
   footer: {
     paddingHorizontal: 24,
     paddingBottom: Platform.OS === 'ios' ? 32 : 24,

@@ -248,21 +248,9 @@ export default function HomeScreen() {
     );
   };
 
-  const handleAbrirDetalhesAnuncio = (produtoId: string) => {
-    if (!user) {
-      Alert.alert(
-        'Login necessário',
-        'Faça login para ver detalhes dos anúncios.',
-        [
-          { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') },
-          { text: 'Cancelar', style: 'cancel' },
-        ]
-      );
-      return;
-    }
-
-    router.push(`/(tabs)/anuncio/${produtoId}`);
-  };
+const handleAbrirDetalhesAnuncio = (produtoId: string) => {
+  router.push(`/(tabs)/anuncio/${produtoId}`);
+};
 
   const handleCarrosselClick = (banner: Banner) => {
     if (!user) {

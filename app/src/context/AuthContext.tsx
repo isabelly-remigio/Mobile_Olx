@@ -14,6 +14,8 @@ interface AuthContextData {
   verifyEmail: (email: string, code: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
   verificationLoading: boolean;
+    updateUser: (userData: Partial<User>) => Promise<void>;
+
 }
 
 interface User {
@@ -236,6 +238,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log('💾 [API REGISTER] Salvando no AsyncStorage...');
       await AsyncStorage.setItem('@Auth:token', data.token);
+            await AsyncStorage.setItem('auth_token', data.token); // ← ADICIONE ESTA LINHA!
+
       await AsyncStorage.setItem('@Auth:user', JSON.stringify(userData));
       setUser(userData);
       setIsAuthenticated(true);
@@ -298,21 +302,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log('Resposta do login COMPLETA:', data);
 
     if (data.token) {
-      // DEBUG: Mostrar TODAS as chaves da resposta
-      console.log('Todas as chaves da resposta:', Object.keys(data));
-      
-      // O nome está em 'nomeUsuario', não em 'nome'!
       const nome = 
-        data.nomeUsuario ||  // PRIMEIRO TENTA 'nomeUsuario' ← ESTE É O CORRETO!
-        data.nome ||         // depois tenta 'nome' (que é o email)
-        data.name ||         // depois 'name' (inglês)
-        email.split('@')[0]; // fallback
-      
-      console.log('Nome encontrado:', nome, '(de nomeUsuario:', data.nomeUsuario, ')');
+        data.nomeUsuario ||
+        data.nome ||
+        data.name ||
+        email.split('@')[0];
       
       const userData = {
         id: data.user?.id || data.id || Date.now().toString(),
-        nome: nome, // ← AGORA COM O NOME CORRETO 'isa'
+        nome: nome,
         email: email,
         telefone: data.telefone,
         dataNascimento: data.dataNascimento,
@@ -320,44 +318,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log('UserData salvo:', userData);
       
+      // 🔧 MUDANÇA AQUI: Salvar em DOIS locais
       await AsyncStorage.setItem('@Auth:token', data.token);
+      await AsyncStorage.setItem('auth_token', data.token); // ← ADICIONE ESTA LINHA!
       await AsyncStorage.setItem('@Auth:user', JSON.stringify(userData));
+      
       setUser(userData);
       setIsAuthenticated(true);
+      
+      // Verificar se salvou corretamente (debug)
+      const token1 = await AsyncStorage.getItem('@Auth:token');
+      const token2 = await AsyncStorage.getItem('auth_token');
+      console.log('✅ Tokens salvos:', {
+        '@Auth:token': token1 ? '✅' : '❌',
+        'auth_token': token2 ? '✅' : '❌',
+        'São iguais?': token1 === token2
+      });
+      
       return data;
     } else {
       throw new Error('Token não recebido na resposta');
     }
   } catch (error: any) {
     console.error('Erro no login:', error);
-    
-    let errorMessage = error.message || 'Erro ao fazer login. Tente novamente.';
-    
-    if (error.message.includes('credenciais') || 
-        error.message.includes('incorretos') || 
-        error.message.includes('401')) {
-      errorMessage = 'Email ou senha incorretos. Verifique suas credenciais.';
-    } else if (error.message.includes('404') || error.message.includes('não encontrado')) {
-      errorMessage = 'Usuário não encontrado. Verifique o email ou cadastre-se.';
-    } else if (error.message.includes('network') || error.message.includes('Network')) {
-      errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
-    }
-    
-    throw new Error(errorMessage);
+    // ... restante do código
   } finally {
     setLoading(false);
   }
 };
   const signOut = async () => {
     try {
-      await AsyncStorage.multiRemove(['@Auth:token', '@Auth:user']);
-      setUser(null);
-      setIsAuthenticated(false);
-      setPersonalData(null);
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-    }
-  };
+      // 🔧 MUDANÇA AQUI: Remover de TODOS os locais
+    await AsyncStorage.multiRemove([
+      '@Auth:token', 
+      '@Auth:user',
+      'auth_token'  // ← ADICIONE ESTE!
+    ]);
+    setUser(null);
+    setIsAuthenticated(false);
+    setPersonalData(null);
+    console.log('✅ Logout completo - tokens removidos de todos os locais');
+  } catch (error) {
+    console.error('Erro ao fazer logout:', error);
+  }
+};
 
   // Verificar se usuário está logado ao iniciar
   useEffect(() => {
@@ -380,21 +384,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loadStorageData();
   }, []);
 
-  return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      signIn,
-      signOut,
-      register,
-      savePersonalData,
-      personalData,
-      isAuthenticated,
-      verificationLoading,
-      verifyEmail,
-      resendVerification,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const updateUser = async (userData: Partial<User>) => {
+  try {
+    console.log('🔄 Atualizando usuário no contexto:', userData);
+    
+    if (user) {
+      // Atualiza o estado local
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      
+      // Atualiza o AsyncStorage
+      await AsyncStorage.setItem('@Auth:user', JSON.stringify(updatedUser));
+      
+      console.log('✅ Usuário atualizado no contexto:', updatedUser);
+    }
+  } catch (error) {
+    console.error('❌ Erro ao atualizar usuário no contexto:', error);
+  }
 };
+
+// Adicione ao retorno do contexto:
+return (
+  <AuthContext.Provider value={{
+    user,
+    loading,
+    signIn,
+    signOut,
+    register,
+    updateUser, // ← ADICIONE AQUI
+    savePersonalData,
+    personalData,
+    isAuthenticated,
+    verificationLoading,
+    verifyEmail,
+    resendVerification,
+  }}>
+    {children}
+  </AuthContext.Provider>
+);
+
+}

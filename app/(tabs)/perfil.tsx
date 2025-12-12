@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
-  StyleSheet,
   SafeAreaView,
   StatusBar,
   Text,
@@ -14,10 +13,12 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Avatar, Icon, Overlay, Button } from '@rneui/themed';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { theme } from '../src/theme/theme';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/app/src/context/AuthContext';
 import { usuarioService, Usuario, AtualizarUsuarioDTO } from '../src/services/usuarioService';
+import styles from '../src/styles/TelaPerfilStyles';
 
 // Tipos
 interface DadosUsuario {
@@ -41,23 +42,48 @@ interface DadosUsuario {
 
 const TelaPerfil: React.FC = () => {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   
+  // Estado inicial explícito
   const [usuario, setUsuario] = useState<DadosUsuario>({
-    id: '1',
+    id: '',
     nome: user?.nome || 'Carregando...',
     email: user?.email || '',
     telefone: '',
+    dataNascimento: '',
     endereco: {
       rua: '',
       bairro: '',
       cidade: '',
       estado: '',
+      cep: '',
+      logradouro: '',
+      numero: '',
+      complemento: '',
     },
   });
 
   const [modalEditarVisivel, setModalEditarVisivel] = useState(false);
-  const [dadosEdicao, setDadosEdicao] = useState<DadosUsuario>(usuario);
+  
+  // Estado inicial explícito para dadosEdicao
+  const [dadosEdicao, setDadosEdicao] = useState<DadosUsuario>({
+    id: '',
+    nome: '',
+    email: '',
+    telefone: '',
+    dataNascimento: '',
+    endereco: {
+      rua: '',
+      bairro: '',
+      cidade: '',
+      estado: '',
+      cep: '',
+      logradouro: '',
+      numero: '',
+      complemento: '',
+    },
+  });
+  
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
@@ -66,31 +92,51 @@ const TelaPerfil: React.FC = () => {
     carregarDadosUsuario();
   }, []);
 
+  // Sincronizar dadosEdicao quando usuario mudar
+  useEffect(() => {
+    if (usuario.id && !carregando) {
+      console.log('🔄 Sincronizando dadosEdicao com usuario');
+      setDadosEdicao({
+        ...usuario,
+        endereco: { ...usuario.endereco }
+      });
+    }
+  }, [usuario, carregando]);
+
   const carregarDadosUsuario = async () => {
     try {
       setCarregando(true);
       console.log('🔄 Carregando dados do usuário...');
       
-      // Busca dados da API
       const dadosAPI = await usuarioService.buscarMeusDados();
       console.log('✅ Dados da API:', dadosAPI);
       
-      // Formata os dados para o frontend
+      // Log detalhado dos campos
+      console.log('🔍 Detalhes da API:');
+      console.log('- dataNascimento:', dadosAPI.dataNascimento);
+      console.log('- cep:', dadosAPI.cep);
+      console.log('- logradouro:', dadosAPI.logradouro);
+      console.log('- numero:', dadosAPI.numero);
+      console.log('- bairro:', dadosAPI.bairro);
+      console.log('- cidade:', dadosAPI.cidade);
+      console.log('- uf:', dadosAPI.uf);
+      
       const usuarioFormatado: DadosUsuario = {
-        id: dadosAPI.id.toString(),
+        id: dadosAPI.id?.toString() || '1',
         nome: dadosAPI.nome || user?.nome || 'Usuário',
         email: dadosAPI.email || user?.email || '',
         telefone: dadosAPI.telefone ? usuarioService.formatarTelefone(dadosAPI.telefone) : '',
-        dataNascimento: dadosAPI.dataNascimento ? usuarioService.formatarDataNascimento(dadosAPI.dataNascimento) : undefined,
+        dataNascimento: dadosAPI.dataNascimento ? 
+          usuarioService.formatarDataNascimento(dadosAPI.dataNascimento) : '',
         endereco: {
-          rua: dadosAPI.endereco?.logradouro || '',
-          bairro: dadosAPI.endereco?.bairro || '',
-          cidade: dadosAPI.endereco?.cidade || '',
-          estado: dadosAPI.endereco?.uf || '',
-          cep: dadosAPI.endereco?.cep || '',
-          logradouro: dadosAPI.endereco?.logradouro || '',
-          numero: dadosAPI.endereco?.numero || '',
-          complemento: dadosAPI.endereco?.complemento || '',
+          rua: dadosAPI.logradouro || '',
+          bairro: dadosAPI.bairro || '',
+          cidade: dadosAPI.cidade || '',
+          estado: dadosAPI.uf || '',
+          cep: dadosAPI.cep || '',
+          logradouro: dadosAPI.logradouro || '',
+          numero: dadosAPI.numero || '',
+          complemento: dadosAPI.complemento || '',
         },
       };
       
@@ -101,17 +147,21 @@ const TelaPerfil: React.FC = () => {
       console.error('❌ Erro ao carregar dados:', error);
       Alert.alert('Erro', 'Não foi possível carregar os dados do perfil.');
       
-      // Fallback com dados do contexto de autenticação
       setUsuario({
         id: '1',
         nome: user?.nome || 'Usuário',
         email: user?.email || '',
         telefone: '',
+        dataNascimento: '',
         endereco: {
           rua: '',
           bairro: '',
           cidade: '',
           estado: '',
+          cep: '',
+          logradouro: '',
+          numero: '',
+          complemento: '',
         },
       });
     } finally {
@@ -120,7 +170,6 @@ const TelaPerfil: React.FC = () => {
   };
 
   const voltar = () => {
-    console.log('Voltando...');
     router.push('/(tabs)/menu');
   };
 
@@ -129,13 +178,44 @@ const TelaPerfil: React.FC = () => {
   };
 
   const abrirModalEditar = () => {
-    setDadosEdicao(usuario);
+    if (carregando) {
+      Alert.alert('Aguarde', 'Carregando dados do perfil...');
+      return;
+    }
+    
+    console.log('📋 Abrindo modal com dados:', usuario);
+    
+    // Cópia profunda garantida
+    const dadosParaEdicao: DadosUsuario = JSON.parse(JSON.stringify(usuario));
+    setDadosEdicao(dadosParaEdicao);
     setModalEditarVisivel(true);
   };
 
   const cancelarEdicao = () => {
-    setDadosEdicao(usuario);
+    // Resetar para os dados atuais do usuário
+    setDadosEdicao(JSON.parse(JSON.stringify(usuario)));
     setModalEditarVisivel(false);
+  };
+
+  // Função auxiliar para formatar data
+  const formatarDataParaAPI = (data: string): string => {
+    if (!data) return '';
+    
+    // Se já está no formato YYYY-MM-DD
+    if (data.includes('-') && data.split('-')[0].length === 4) {
+      return data;
+    }
+    
+    // Se está no formato DD/MM/YYYY
+    if (data.includes('/')) {
+      const partes = data.split('/');
+      if (partes.length === 3) {
+        const [dia, mes, ano] = partes;
+        return `${ano}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+      }
+    }
+    
+    return data;
   };
 
   const salvarEdicao = async () => {
@@ -143,71 +223,87 @@ const TelaPerfil: React.FC = () => {
       setSalvando(true);
       console.log('💾 Salvando dados editados...');
       
-      // Preparar dados para a API
       const dadosAPI: AtualizarUsuarioDTO = {
         nome: dadosEdicao.nome !== usuario.nome ? dadosEdicao.nome : undefined,
         telefone: dadosEdicao.telefone !== usuario.telefone ? 
-          dadosEdicao.telefone?.replace(/\D/g, '') : undefined,
+          (dadosEdicao.telefone || '').replace(/\D/g, '') : undefined,
         dataNascimento: dadosEdicao.dataNascimento !== usuario.dataNascimento ? 
-          dadosEdicao.dataNascimento?.split('/').reverse().join('-') : undefined,
+          formatarDataParaAPI(dadosEdicao.dataNascimento || '') : undefined,
         cep: dadosEdicao.endereco.cep !== usuario.endereco.cep ? 
-          dadosEdicao.endereco.cep : undefined,
+          (dadosEdicao.endereco.cep || '').replace(/\D/g, '') : undefined,
         logradouro: dadosEdicao.endereco.logradouro !== usuario.endereco.logradouro ? 
-          dadosEdicao.endereco.logradouro : undefined,
+          (dadosEdicao.endereco.logradouro || '') : undefined,
         numero: dadosEdicao.endereco.numero !== usuario.endereco.numero ? 
-          dadosEdicao.endereco.numero : undefined,
+          (dadosEdicao.endereco.numero || '') : undefined,
         bairro: dadosEdicao.endereco.bairro !== usuario.endereco.bairro ? 
-          dadosEdicao.endereco.bairro : undefined,
+          (dadosEdicao.endereco.bairro || '') : undefined,
         cidade: dadosEdicao.endereco.cidade !== usuario.endereco.cidade ? 
-          dadosEdicao.endereco.cidade : undefined,
+          (dadosEdicao.endereco.cidade || '') : undefined,
         uf: dadosEdicao.endereco.estado !== usuario.endereco.estado ? 
-          dadosEdicao.endereco.estado : undefined,
+          (dadosEdicao.endereco.estado || '').toUpperCase() : undefined,
         complemento: dadosEdicao.endereco.complemento !== usuario.endereco.complemento ? 
-          dadosEdicao.endereco.complemento : undefined,
+          (dadosEdicao.endereco.complemento || '') : undefined,
       };
       
-      // Remove campos undefined
+      // Filtrar campos undefined/vazios
       const dadosLimpos = Object.fromEntries(
-        Object.entries(dadosAPI).filter(([_, value]) => value !== undefined)
+        Object.entries(dadosAPI).filter(([_, value]) => 
+          value !== undefined && value !== null && value !== ''
+        )
       );
       
-      console.log('📤 Dados para API:', dadosLimpos);
+      console.log('📤 Dados para enviar:', dadosLimpos);
       
-      // Se não há nada para atualizar, apenas fecha o modal
       if (Object.keys(dadosLimpos).length === 0) {
         Alert.alert('Aviso', 'Nenhuma alteração detectada.');
         setModalEditarVisivel(false);
         return;
       }
       
-      // Chama a API
       const usuarioAtualizado = await usuarioService.atualizarMeusDados(dadosLimpos);
+      console.log('✅ Usuário atualizado:', usuarioAtualizado);
       
-      // Atualiza o estado local
-      setUsuario(dadosEdicao);
-      setModalEditarVisivel(false);
+      // ✅ ATUALIZA O CONTEXTO AQUI
+      if (updateUser) {
+        await updateUser({
+          nome: dadosEdicao.nome,
+          telefone: dadosEdicao.telefone,
+          dataNascimento: dadosEdicao.dataNascimento,
+        });
+      } else {
+        // Fallback: atualizar manualmente o AsyncStorage
+        const userData = {
+          id: user?.id || usuario.id,
+          nome: dadosEdicao.nome,
+          email: dadosEdicao.email,
+          telefone: dadosEdicao.telefone,
+          dataNascimento: dadosEdicao.dataNascimento,
+        };
+        await AsyncStorage.setItem('@Auth:user', JSON.stringify(userData));
+      }
       
-      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
-      
-      // Recarrega os dados da API para garantir sincronização
+      // Recarrega os dados da API
       await carregarDadosUsuario();
+      
+      setModalEditarVisivel(false);
+      Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
       
     } catch (error) {
       console.error('❌ Erro ao salvar:', error);
-      Alert.alert('Erro', 'Não foi possível salvar as alterações. Tente novamente.');
+      Alert.alert('Erro', 'Não foi possível salvar as alterações.');
     } finally {
       setSalvando(false);
     }
   };
 
-  const atualizarCampo = (campo: string, valor: string) => {
+  const atualizarCampo = (campo: keyof DadosUsuario, valor: string) => {
     setDadosEdicao(prev => ({
       ...prev,
       [campo]: valor,
     }));
   };
 
-  const atualizarEndereco = (campo: string, valor: string) => {
+  const atualizarEndereco = (campo: keyof DadosUsuario['endereco'], valor: string) => {
     setDadosEdicao(prev => ({
       ...prev,
       endereco: {
@@ -228,12 +324,7 @@ const TelaPerfil: React.FC = () => {
         <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
         <View style={styles.header}>
           <TouchableOpacity onPress={voltar} style={styles.headerButton}>
-            <Icon
-              name="arrow-back"
-              type="material"
-              size={24}
-              color={theme.colors.gray800}
-            />
+            <Icon name="arrow-back" type="material" size={24} color={theme.colors.gray800} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Perfil</Text>
           <View style={styles.headerButton} />
@@ -250,40 +341,24 @@ const TelaPerfil: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={voltar} style={styles.headerButton}>
-          <Icon
-            name="arrow-back"
-            type="material"
-            size={24}
-            color={theme.colors.gray800}
-          />
+          <Icon name="arrow-back" type="material" size={24} color={theme.colors.gray800} />
         </TouchableOpacity>
-        
         <Text style={styles.headerTitle}>Perfil</Text>
-        
         <TouchableOpacity onPress={compartilhar} style={styles.headerButton}>
-          <Icon
-            name="share"
-            type="material"
-            size={24}
-            color={theme.colors.gray800}
-          />
+          <Icon name="share" type="material" size={24} color={theme.colors.gray800} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Card de Informações */}
         <View style={styles.card}>
-          {/* Foto + Nome */}
           <View style={styles.userHeader}>
             <Avatar
               size={48}
               rounded
               title={getIniciais(usuario.nome)}
               containerStyle={styles.avatar}
-              source={usuario.foto ? { uri: usuario.foto } : undefined}
               titleStyle={styles.avatarTitle}
             />
             <View style={styles.userInfo}>
@@ -291,16 +366,9 @@ const TelaPerfil: React.FC = () => {
             </View>
           </View>
 
-          {/* Localização */}
           {(usuario.endereco.bairro || usuario.endereco.cidade || usuario.endereco.estado) && (
             <View style={styles.infoRow}>
-              <Icon
-                name="location-on"
-                type="material"
-                size={16}
-                color={theme.colors.gray600}
-                containerStyle={styles.infoIcon}
-              />
+              <Icon name="location-on" type="material" size={16} color={theme.colors.gray600} containerStyle={styles.infoIcon} />
               <Text style={styles.infoText}>
                 {usuario.endereco.bairro && `${usuario.endereco.bairro}, `}
                 {usuario.endereco.cidade && `${usuario.endereco.cidade} `}
@@ -309,89 +377,57 @@ const TelaPerfil: React.FC = () => {
             </View>
           )}
 
-          {/* Divider */}
           <View style={styles.divider} />
 
-          {/* Email */}
           <View style={styles.contactRow}>
             <View style={styles.statusIndicator} />
-            <Icon
-              name="email"
-              type="material"
-              size={18}
-              color={theme.colors.gray600}
-              containerStyle={styles.contactIcon}
-            />
+            <Icon name="email" type="material" size={18} color={theme.colors.gray600} containerStyle={styles.contactIcon} />
             <Text style={styles.contactText}>{usuario.email}</Text>
           </View>
 
-          {/* Telefone */}
           {usuario.telefone && (
             <View style={styles.contactRow}>
               <View style={styles.statusIndicator} />
-              <Icon
-                name="phone"
-                type="material"
-                size={18}
-                color={theme.colors.gray600}
-                containerStyle={styles.contactIcon}
-              />
+              <Icon name="phone" type="material" size={18} color={theme.colors.gray600} containerStyle={styles.contactIcon} />
               <Text style={styles.contactText}>{usuario.telefone}</Text>
             </View>
           )}
 
-          {/* Botão Editar */}
           <Button
             title="Editar Perfil"
             onPress={abrirModalEditar}
             buttonStyle={styles.editButton}
             titleStyle={styles.editButtonText}
-            icon={{
-              name: 'edit',
-              type: 'material',
-              size: 18,
-              color: theme.colors.white,
-            }}
+            icon={{ name: 'edit', type: 'material', size: 18, color: theme.colors.white }}
             iconPosition="left"
           />
         </View>
 
-        {/* Espaço extra */}
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Modal de Edição */}
+      {/* MODAL DE EDIÇÃO */}
       <Overlay
         isVisible={modalEditarVisivel}
         onBackdropPress={cancelarEdicao}
         overlayStyle={styles.modalOverlay}
         animationType="slide"
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
-        >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContainer}>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.modalContent}>
-              {/* Header do Modal */}
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Editar Perfil</Text>
                 <TouchableOpacity onPress={cancelarEdicao}>
-                  <Icon
-                    name="close"
-                    type="material"
-                    size={24}
-                    color={theme.colors.gray700}
-                  />
+                  <Icon name="close" type="material" size={24} color={theme.colors.gray700} />
                 </TouchableOpacity>
               </View>
 
-              {/* Campos de Edição */}
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Nome *</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.nome}
+                  value={dadosEdicao.nome || ''}
                   onChangeText={(text) => atualizarCampo('nome', text)}
                   placeholder="Digite seu nome"
                   placeholderTextColor={theme.colors.gray400}
@@ -403,9 +439,8 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>E-mail</Text>
                 <TextInput
                   style={[styles.input, { backgroundColor: theme.colors.gray100 }]}
-                  value={dadosEdicao.email}
+                  value={dadosEdicao.email || ''}
                   editable={false}
-                  placeholderTextColor={theme.colors.gray400}
                 />
                 <Text style={styles.inputHint}>E-mail não pode ser alterado</Text>
               </View>
@@ -414,7 +449,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Telefone</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.telefone}
+                  value={dadosEdicao.telefone || ''}
                   onChangeText={(text) => atualizarCampo('telefone', text)}
                   placeholder="(XX) XXXXX-XXXX"
                   keyboardType="phone-pad"
@@ -427,7 +462,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Data de Nascimento</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.dataNascimento}
+                  value={dadosEdicao.dataNascimento || ''}
                   onChangeText={(text) => atualizarCampo('dataNascimento', text)}
                   placeholder="DD/MM/AAAA"
                   placeholderTextColor={theme.colors.gray400}
@@ -439,7 +474,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>CEP</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.endereco.cep}
+                  value={dadosEdicao.endereco.cep || ''}
                   onChangeText={(text) => atualizarEndereco('cep', text)}
                   placeholder="00000-000"
                   keyboardType="numeric"
@@ -452,7 +487,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Logradouro</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.endereco.logradouro}
+                  value={dadosEdicao.endereco.logradouro || ''}
                   onChangeText={(text) => atualizarEndereco('logradouro', text)}
                   placeholder="Rua, Avenida, etc."
                   placeholderTextColor={theme.colors.gray400}
@@ -464,7 +499,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Número</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.endereco.numero}
+                  value={dadosEdicao.endereco.numero || ''}
                   onChangeText={(text) => atualizarEndereco('numero', text)}
                   placeholder="Número"
                   placeholderTextColor={theme.colors.gray400}
@@ -476,7 +511,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Bairro</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.endereco.bairro}
+                  value={dadosEdicao.endereco.bairro || ''}
                   onChangeText={(text) => atualizarEndereco('bairro', text)}
                   placeholder="Digite o bairro"
                   placeholderTextColor={theme.colors.gray400}
@@ -488,7 +523,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Cidade</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.endereco.cidade}
+                  value={dadosEdicao.endereco.cidade || ''}
                   onChangeText={(text) => atualizarEndereco('cidade', text)}
                   placeholder="Digite a cidade"
                   placeholderTextColor={theme.colors.gray400}
@@ -500,7 +535,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Estado (UF)</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.endereco.estado}
+                  value={dadosEdicao.endereco.estado || ''}
                   onChangeText={(text) => atualizarEndereco('estado', text)}
                   placeholder="UF"
                   maxLength={2}
@@ -514,7 +549,7 @@ const TelaPerfil: React.FC = () => {
                 <Text style={styles.label}>Complemento</Text>
                 <TextInput
                   style={styles.input}
-                  value={dadosEdicao.endereco.complemento}
+                  value={dadosEdicao.endereco.complemento || ''}
                   onChangeText={(text) => atualizarEndereco('complemento', text)}
                   placeholder="Apartamento, bloco, etc."
                   placeholderTextColor={theme.colors.gray400}
@@ -522,7 +557,6 @@ const TelaPerfil: React.FC = () => {
                 />
               </View>
 
-              {/* Botões */}
               <View style={styles.modalButtons}>
                 <Button
                   title="Cancelar"
@@ -549,227 +583,5 @@ const TelaPerfil: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-
-   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: theme.colors.gray600,
-  },
-  
-  inputHint: {
-    fontSize: 12,
-    color: theme.colors.gray500,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  
-  // Header
-  header: {
-    height: 56,
-    backgroundColor: theme.colors.white,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.semibold,
-    color: theme.colors.gray900,
-  },
-  
-  // Scroll
-  scrollView: {
-    flex: 1,
-  },
-  
-  // Card
-  card: {
-    backgroundColor: theme.colors.white,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderRadius: 8,
-    padding: 16,
-    margin: 16,
-    marginTop: 8,
-  },
-  
-  // User Header
-  userHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatar: {
-    backgroundColor: theme.colors.primary[500],
-  },
-  avatarTitle: {
-    fontSize: 18,
-    fontWeight: theme.typography.weights.bold,
-  },
-  userInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semibold,
-    color: theme.colors.black,
-  },
-  
-  // Info Row
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  infoIcon: {
-    marginRight: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#444',
-    flex: 1,
-  },
-  
-  // Divider
-  divider: {
-    height: 1,
-    backgroundColor: theme.colors.gray200,
-    marginVertical: 12,
-  },
-  
-  // Contact Row
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 32,
-    marginBottom: 8,
-  },
-  statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.success,
-    marginRight: 8,
-  },
-  contactIcon: {
-    marginRight: 8,
-  },
-  contactText: {
-    fontSize: 14,
-    color: theme.colors.gray800,
-  },
-  
-  // Edit Button
-  editButton: {
-    backgroundColor: theme.colors.secondary[500],
-    height: 44,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  editButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semibold,
-    marginLeft: 8,
-  },
-  
-  // Modal
-  modalOverlay: {
-    width: '95%',
-    maxHeight: '90%',
-    borderRadius: 12,
-    padding: 0,
-  },
-  modalContainer: {
-    maxHeight: '100%',
-  },
-  modalContent: {
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.gray900,
-  },
-  
-  // Form
-  formGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.gray700,
-    marginBottom: 8,
-  },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: theme.colors.gray300,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 15,
-    color: theme.colors.gray900,
-    backgroundColor: theme.colors.white,
-  },
-  
-  // Modal Buttons
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  buttonContainer: {
-    flex: 1,
-  },
-  cancelButton: {
-    backgroundColor: theme.colors.gray300,
-    height: 48,
-    borderRadius: 8,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semibold,
-    color: theme.colors.gray700,
-  },
-  saveButton: {
-    backgroundColor: theme.colors.secondary[500],
-    height: 48,
-    borderRadius: 8,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: theme.typography.weights.semibold,
-    color: theme.colors.white,
-  },
-});
 
 export default TelaPerfil;
