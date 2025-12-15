@@ -1,18 +1,20 @@
 // screens/compras.tsx
-import React from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  SafeAreaView,
-  StyleSheet,
-  ScrollView,
-} from 'react-native';
-import { theme } from '../src/theme/theme';
 import { Icon } from '@rneui/themed';
 import { useRouter } from 'expo-router';
+import React from 'react';
+import {
+  Alert,
+  FlatList,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { apiService } from '../src/services/api';
+import { theme } from '../src/theme/theme';
 // Tipos em português
 type StatusCompra = 'entregue' | 'enviado' | 'cancelado' | 'aguardando_pagamento' | 'aguardando_envio';
 
@@ -29,47 +31,83 @@ interface ComprasScreenProps {
   navegacao: any;
 }
 
-// Dados de exemplo
-const comprasMock: ItemCompra[] = [
-  {
-    id: '1',
-    imagem: 'https://via.placeholder.com/150',
-    titulo: 'TV LG 50 Polegadas',
-    preco: 2499.00,
-    data: '25/05/2024',
-    status: 'entregue',
-  },
-  {
-    id: '2',
-    imagem: 'https://via.placeholder.com/150',
-    titulo: 'Notebook Dell Inspiron',
-    preco: 3900.00,
-    data: '10/01/2025',
-    status: 'aguardando_envio',
-  },
-  {
-    id: '3',
-    imagem: 'https://via.placeholder.com/150',
-    titulo: 'iPhone 15 Pro Max',
-    preco: 8999.00,
-    data: '05/02/2025',
-    status: 'enviado',
-  },
-  {
-    id: '4',
-    imagem: 'https://via.placeholder.com/150',
-    titulo: 'Monitor Samsung 27"',
-    preco: 1299.90,
-    data: '15/03/2025',
-    status: 'aguardando_pagamento',
-  },
-];
+// Inicialmente vazio — carregaremos do backend
+const comprasMock: ItemCompra[] = [];
 
 const ComprasScreen: React.FC<ComprasScreenProps> = ({ navegacao }) => {
   const [compras, setCompras] = React.useState<ItemCompra[]>(comprasMock);
   const [estaCarregando, setEstaCarregando] = React.useState(false);
   const [estaVazio, setEstaVazio] = React.useState(false);
   const router = useRouter();
+
+  React.useEffect(() => {
+    fetchCompras();
+  }, []);
+
+  const mapStatus = (raw?: string | null): StatusCompra => {
+    if (!raw) return 'aguardando_pagamento';
+    const s = String(raw).toUpperCase().trim();
+
+    // Mapeamento explícito para o enum do backend
+    if (s === 'PENDENTE') return 'aguardando_pagamento';
+    if (s === 'APROVADO') return 'aguardando_envio';
+    if (s === 'FALHOU') return 'aguardando_pagamento';
+    if (s === 'CANCELADO') return 'cancelado';
+
+    // Fallback heurístico (mantido para compatibilidade com outras strings)
+    if (s.includes('ENTREG') || s.includes('COMPLET')) return 'entregue';
+    if (s.includes('ENVIAD')) return 'enviado';
+    if (s.includes('ENVIO')) return 'aguardando_envio';
+    if (s.includes('PAG') || s.includes('PEND') || s.includes('FAL')) return 'aguardando_pagamento';
+    return 'aguardando_pagamento';
+  };
+
+  const formatarDataIso = (iso?: string | null) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('pt-BR');
+    } catch (e) {
+      return String(iso);
+    }
+  };
+
+  const fetchCompras = async () => {
+    setEstaCarregando(true);
+    try {
+      const resp: any[] = await apiService.get('/pagamento/me');
+      if (!Array.isArray(resp)) {
+        throw new Error('Resposta inválida do servidor');
+      }
+
+      const mapped: ItemCompra[] = resp.map((p: any) => {
+        const produto = p.produto || p.produtoDto || p.produtoResponse || {};
+        const titulo = produto.titulo || produto.nome || produto.title || produto.name || produto.descricao || 'Produto';
+        const imagem = produto.imagem || produto.imagemUrl || produto.imagemPrincipal || produto.imagens?.[0] || 'https://via.placeholder.com/150';
+        const preco = (p.amountCents ?? produto.preco ?? produto.price ?? 0) / 100;
+        const data = formatarDataIso(p.dataConfirmacao || p.dataCriacao || p.createdAt || p.data);
+        const status = mapStatus(p.status || p.statusPagamento || p.statusPagamento?.name || produto.status);
+
+        return {
+          id: String(p.id || p.pagamentoId || p.paymentId || produto.id || Math.random()),
+          imagem,
+          titulo,
+          preco: Number(preco || 0),
+          data,
+          status,
+        } as ItemCompra;
+      });
+
+      setCompras(mapped);
+      setEstaVazio(mapped.length === 0);
+    } catch (error: any) {
+      console.error('[compras] erro ao carregar compras', error);
+      Alert.alert('Erro', error?.message || 'Não foi possível carregar compras.');
+      setEstaVazio(true);
+    } finally {
+      setEstaCarregando(false);
+    }
+  };
 
   // Função para obter a cor do status
   const obterCorStatus = (status: StatusCompra): string => {
@@ -252,9 +290,7 @@ const ComprasScreen: React.FC<ComprasScreenProps> = ({ navegacao }) => {
           ListEmptyComponent={renderizarEstadoVazio}
           refreshing={estaCarregando}
           onRefresh={() => {
-            setEstaCarregando(true);
-            // Simular carregamento
-            setTimeout(() => setEstaCarregando(false), 1000);
+            fetchCompras();
           }}
         />
       )}
