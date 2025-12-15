@@ -1,27 +1,27 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  ScrollView,
-  FlatList,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { Text, Icon } from '@rneui/themed';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/app/src/context/AuthContext';
-import Header from '../src/components/layout/Header';
-import NavCategorias from '../src/components/ui/NavCategorias';
-import BarraPesquisa from '../src/components/ui/BarraPesquisa';
-import Carrossel from '../src/components/ui/Carrossel';
-import CardProduto from '../src/components/ui/CardProduto';
-import { HomeScreenStyles } from '../src/styles/HomeScreenStyles';
-import { theme } from '../src/theme/theme';
-import { produtoService, CATEGORIAS_FRONTEND, FiltrosProduto } from '../src/services/produtoService';
+import { Icon, Text } from '@rneui/themed';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Categoria,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  ScrollView,
+  View,
+} from 'react-native';
+import {
   Banner,
+  Categoria,
   Produto,
 } from '../src/@types/home';
+import Header from '../src/components/layout/Header';
+import BarraPesquisa from '../src/components/ui/BarraPesquisa';
+import CardProduto from '../src/components/ui/CardProduto';
+import Carrossel from '../src/components/ui/Carrossel';
+import NavCategorias from '../src/components/ui/NavCategorias';
+import { CATEGORIAS_FRONTEND, FiltrosProduto, produtoService } from '../src/services/produtoService';
+import { HomeScreenStyles } from '../src/styles/HomeScreenStyles';
+import { theme } from '../src/theme/theme';
 
 // Categorias para os ícones
 const categorias: Categoria[] = CATEGORIAS_FRONTEND.map(cat => ({
@@ -542,10 +542,6 @@ function getProdutosFallback(): Produto[] {
       }
     },
   ];
-<<<<<<< HEAD
-  
-=======
 
->>>>>>> 478abbc7b9e9207ba877fef1261ed4ad5192efe5
   return produtos;
 }
