@@ -2,7 +2,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
-  StyleSheet,
   SafeAreaView,
   StatusBar,
   FlatList,
@@ -15,6 +14,7 @@ import BarraPesquisa from '../src/components/ui/BarraPesquisa';
 import { theme } from '../src/theme/theme';
 import { produtoService, FiltrosProduto } from '../src/services/produtoService';
 import { Produto } from '../src/@types/home';
+import { styles } from '../src/styles/TelaPesquisaStyles';
 
 interface Filtro {
   precoMin?: number;
@@ -31,18 +31,14 @@ const TelaPesquisa: React.FC = () => {
   const [resultadosCount, setResultadosCount] = useState(0);
   const [carregando, setCarregando] = useState(false);
   const [mostrarResultadosVazios, setMostrarResultadosVazios] = useState(false);
-  
-  // Flag para controlar se já fez uma busca
   const [jaBuscou, setJaBuscou] = useState(false);
 
-  // Função para buscar produtos com os filtros atuais
   const buscarProdutos = useCallback(async () => {
     console.log('🔍 Buscando produtos com:', {
       termo: termoPesquisa,
       filtros: filtrosAtivos
     });
 
-    // Se não tem termo nem filtros, não busca
     if (!termoPesquisa.trim() && Object.keys(filtrosAtivos).length === 0) {
       console.log('📊 Sem termo nem filtros, limpando resultados');
       setProdutos([]);
@@ -57,7 +53,6 @@ const TelaPesquisa: React.FC = () => {
       setMostrarResultadosVazios(true);
       setJaBuscou(true);
       
-      // Converte filtros do modal para formato da API
       const filtrosAPI: FiltrosProduto = {
         termo: termoPesquisa.trim() || undefined,
         categoria: filtrosAtivos.categoria || undefined,
@@ -67,8 +62,6 @@ const TelaPesquisa: React.FC = () => {
       };
 
       console.log('📡 Enviando para API:', filtrosAPI);
-
-      // Faz pesquisa avançada
       const resultados = await produtoService.pesquisarAvancado(filtrosAPI);
       
       console.log(`✅ ${resultados.length} produtos encontrados`);
@@ -85,12 +78,10 @@ const TelaPesquisa: React.FC = () => {
     }
   }, [termoPesquisa, filtrosAtivos]);
 
-  // Buscar quando termo ou filtros mudam
   useEffect(() => {
-    // Debounce para evitar muitas chamadas
     const timer = setTimeout(() => {
       buscarProdutos();
-    }, 500); // 500ms de delay
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [buscarProdutos]);
@@ -102,17 +93,13 @@ const TelaPesquisa: React.FC = () => {
 
   const handleFiltrosChange = (novosFiltros: Filtro) => {
     console.log('⚙️ Filtros alterados (substituindo):', novosFiltros);
-    
-    // Substitui TODOS os filtros anteriores pelos novos
     setFiltrosAtivos(novosFiltros);
   };
 
-  // Função para limpar TUDO (chamada pelo BarraPesquisa quando o usuário clica em "Limpar Todos")
   const handleLimparTodosFiltros = () => {
     console.log('🧹 Limpando tudo (chamado do BarraPesquisa)');
     setTermoPesquisa('');
     setFiltrosAtivos({});
-    // Não precisa limpar produtos aqui - a busca vai ser disparada automaticamente pelo useEffect
   };
 
   const renderProduto = ({ item }: { item: Produto }) => (
@@ -168,15 +155,12 @@ const TelaPesquisa: React.FC = () => {
             ? `Não encontramos resultados para "${termoPesquisa}" com os filtros aplicados`
             : 'Nenhum produto encontrado com os filtros selecionados'}
         </Text>
-
       </View>
     );
   };
 
-  // Verifica se há filtros ativos
   const temFiltrosAtivos = Object.keys(filtrosAtivos).length > 0;
   
-  // Texto dos filtros ativos para exibir
   const getTextoFiltrosAtivos = () => {
     const filtrosTexto = [];
     
@@ -201,146 +185,35 @@ const TelaPesquisa: React.FC = () => {
   };
 
   return (
-   <SafeAreaView style={styles.container}>
-    <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
-    
-    {/* Barra de Pesquisa - PASSA A FUNÇÃO handleLimparTodosFiltros */}
-    <BarraPesquisa
-      placeholder="Buscar produtos..."
-      onSearch={handleSearch}
-      onFiltrosChange={handleFiltrosChange}
-      resultadosCount={resultadosCount}
-      mostrarResultadosVazios={mostrarResultadosVazios && resultadosCount === 0}
-      onLimparTodosFiltros={handleLimparTodosFiltros}
-    />
-
-    {/* Lista de Resultados */}
-    {carregando ? (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={styles.loadingText}>Buscando produtos...</Text>
-      </View>
-    ) : (
-      <FlatList
-        data={produtos}
-        renderItem={renderProduto}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContainer}
-        ListEmptyComponent={renderEmptyState}
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.container}>
+      <StatusBar  backgroundColor={theme.colors.white} />
+      
+      <BarraPesquisa
+        placeholder="Buscar produtos..."
+        onSearch={handleSearch}
+        onFiltrosChange={handleFiltrosChange}
+        resultadosCount={resultadosCount}
+        mostrarResultadosVazios={mostrarResultadosVazios && resultadosCount === 0}
+        // onLimparTodosFiltros={handleLimparTodosFiltros}
       />
-    )}
-  </SafeAreaView>
-);
-};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.gray50,
-  },
-  listContainer: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    flexGrow: 1,
-  },
-  card: {
-    borderRadius: theme.borderRadius.md,
-    marginBottom: theme.spacing.md,
-    padding: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.gray200,
-    backgroundColor: theme.colors.white,
-  },
-  cardContent: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  productImage: {
-    width: 100,
-    height: 100,
-    borderRadius: theme.borderRadius.sm,
-  },
-  productInfo: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  productName: {
-    fontSize: theme.typography.sizes.md,
-    fontWeight: theme.typography.weights.semibold,
-    color: theme.colors.gray900,
-    marginBottom: theme.spacing.xs,
-  },
-  productPrice: {
-    fontSize: theme.typography.sizes.lg,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.primary[500],
-    marginBottom: theme.spacing.xs,
-  },
-  productLocation: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.gray600,
-    marginBottom: theme.spacing.xs,
-  },
-  productHighlight: {
-    fontSize: theme.typography.sizes.xs,
-    color: theme.colors.success,
-    fontWeight: theme.typography.weights.medium,
-    backgroundColor: theme.colors.successLight,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 2,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
-    paddingTop: theme.spacing['3xl'],
-  },
-  emptyTitle: {
-    fontSize: theme.typography.sizes.xl,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.gray800,
-    marginBottom: theme.spacing.sm,
-    textAlign: 'center',
-  },
-  emptyText: {
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.gray500,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: theme.spacing.md,
-    fontSize: theme.typography.sizes.md,
-    color: theme.colors.gray600,
-  },
-  searchInfoContainer: {
-    backgroundColor: theme.colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.gray200,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-  },
-  searchInfoText: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.gray700,
-    marginBottom: 4,
-    flexWrap: 'wrap',
-  },
-  resultsCount: {
-    fontSize: theme.typography.sizes.sm,
-    color: theme.colors.gray600,
-    fontWeight: theme.typography.weights.medium,
-  },
-  // Removidos os estilos do botão clearAllButton
-});
+      {carregando ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.loadingText}>Buscando produtos...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={produtos}
+          renderItem={renderProduto}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={renderEmptyState}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+    </SafeAreaView>
+  );
+};
 
 export default TelaPesquisa;

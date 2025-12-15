@@ -321,7 +321,7 @@ const TelaPerfil: React.FC = () => {
   if (carregando) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
+        <StatusBar  backgroundColor={theme.colors.white} />
         <View style={styles.header}>
           <TouchableOpacity onPress={voltar} style={styles.headerButton}>
             <Icon name="arrow-back" type="material" size={24} color={theme.colors.gray800} />
@@ -339,7 +339,7 @@ const TelaPerfil: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.white} />
+      <StatusBar  backgroundColor={theme.colors.white} />
       
       <View style={styles.header}>
         <TouchableOpacity onPress={voltar} style={styles.headerButton}>
