@@ -1,5 +1,6 @@
-import { apiService, publicApi } from './api';
 import { Produto } from '@/app/src/@types/home';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiService, publicApi } from './api';
 
 // Tipos para os filtros
 export interface FiltrosProduto {
@@ -145,8 +146,40 @@ export const produtoService = {
       
       console.log('✨ Produtos transformados:', produtosTransformados);
       return produtosTransformados;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao listar produtos:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
+      try {
+        console.error('[produtoService] response.data (string):', JSON.stringify(error?.response?.data));
+      } catch (e) {
+        console.error('[produtoService] Falha ao serializar response.data', e);
+      }
+
+      // DEBUG: se for 403, tentar novamente incluindo token (para verificar se o 403 é por falta de auth)
+      if (error?.response?.status === 403) {
+        try {
+          const token = await AsyncStorage.getItem('auth_token') || await AsyncStorage.getItem('@Auth:token');
+          console.log('[produtoService] 403 recebido, tentando novamente com Authorization:', !!token);
+          if (token) {
+            const retryResp = await publicApi.get('/produtos', {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+            console.log('[produtoService] Retry com token retornou:', retryResp.data?.length);
+            const produtosTransformados = retryResp.data.map((produtoBackend: any) => this.transformarProduto(produtoBackend));
+            return produtosTransformados;
+          }
+        } catch (retryError) {
+          console.error('[produtoService] Retry com token falhou:', retryError);
+        }
+      }
+
       throw error;
     }
   },
@@ -165,8 +198,14 @@ export const produtoService = {
       return response.data.map((produtoBackend: any) => 
         this.transformarProduto(produtoBackend)
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao pesquisar produtos:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
       throw error;
     }
   },
@@ -207,8 +246,14 @@ export const produtoService = {
       return response.data.map((produtoBackend: any) => 
         this.transformarProduto(produtoBackend)
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na pesquisa avançada:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
       throw error;
     }
   },
@@ -218,8 +263,14 @@ export const produtoService = {
     try {
       const produto = await apiService.get<Produto>(`/produtos/${id}`);
       return this.transformarProduto(produto);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao buscar detalhes:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
       throw error;
     }
   },
@@ -238,8 +289,14 @@ export const produtoService = {
       
       console.log(`✨ ${produtosTransformados.length} produtos transformados`);
       return produtosTransformados;
-    } catch (error) {
+    } catch (error: any) {
       console.error(`❌ Erro ao listar por categoria ${categoriaBackend}:`, error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
       throw error;
     }
   },

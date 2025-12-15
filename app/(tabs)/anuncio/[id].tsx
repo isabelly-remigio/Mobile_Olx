@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  SafeAreaView,
-  Linking,
-  ActivityIndicator
-} from 'react-native';
-import { Icon, Divider } from '@rneui/themed';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Anuncio } from '@/app/src/@types/anuncio';
+import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 import { CarrosselAnuncio } from '@/app/src/components/ui/CarrosselAnuncio';
 import { InfoAnunciante } from '@/app/src/components/ui/InfoAnunciante';
-import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 import { LocalizacaoAnuncio } from '@/app/src/components/ui/LocalizacaoAnuncio';
+import { useAuth } from '@/app/src/context/AuthContext';
 import { useCart } from '@/app/src/context/CartContext';
-import { Anuncio } from '@/app/src/@types/anuncio';
 import { anuncioService } from '@/app/src/services/anuncioService';
+import pagamentoService from '@/app/src/services/pagamentoService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
+import { Divider, Icon } from '@rneui/themed';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Linking,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
 
 // Dados de fallback caso a API falhe
 const dadosFallback: Anuncio = {
@@ -60,6 +63,8 @@ export default function DetalhesAnuncio() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const { addToCart } = useCart();
+  const { isAuthenticated, signOut } = useAuth();
+  const [comprando, setComprando] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -118,22 +123,71 @@ export default function DetalhesAnuncio() {
     if (!anuncio) return;
     
     try {
-      addToCart(anuncio);
+      if (typeof addToCart === 'function') {
+        addToCart(anuncio);
+      } else {
+        console.error('addToCart não é uma função:', addToCart);
+        throw new Error('Erro interno: função de carrinho indisponível');
+      }
       Alert.alert('Sucesso', `${anuncio.nome} adicionado ao carrinho!`);
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível adicionar ao carrinho');
     }
   };
 
-  const handleComprarAgora = () => {
+  const handleComprarAgora = async () => {
     if (!anuncio) return;
-    
+
+    if (!isAuthenticated) {
+      Alert.alert('Login necessário', 'Faça login para concluir a compra', [
+        { text: 'Cancelar' },
+        { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') }
+      ]);
+      return;
+    }
+
     try {
-      addToCart(anuncio);
-      Alert.alert('Compra', `Iniciando compra de ${anuncio.nome}`);
-      // router.push('/checkout');
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível realizar a compra');
+      setComprando(true);
+      // opcionalmente adiciona ao carrinho
+      if (typeof addToCart === 'function') {
+        addToCart(anuncio);
+      } else {
+        console.error('addToCart não é uma função ao comprar:', addToCart);
+      }
+
+      const resp = await pagamentoService.createCheckout({
+        produtoId: Number(anuncio.id),
+        quantity: 1,
+        currency: 'brl',
+        successUrl: 'http://localhost:3000/sucesso',
+        cancelUrl: 'http://localhost:3000/erro'
+      });
+
+      const checkoutUrl = resp.checkoutUrl || (resp.sessionId ? `https://checkout.stripe.com/session/${resp.sessionId}` : undefined);
+
+      if (!checkoutUrl) {
+        throw new Error(resp.error || 'Nenhuma URL de checkout retornada');
+      }
+
+      // Redireciona para o checkout
+      if (Platform.OS === 'web') {
+        window.location.href = checkoutUrl;
+      } else {
+        await Linking.openURL(checkoutUrl);
+      }
+
+    } catch (error: any) {
+      console.error('Erro ao iniciar checkout:', error);
+      const msg = error?.message || '';
+      if (msg.includes('JWT expired') || msg.includes('expired')) {
+        Alert.alert('Sessão expirada', 'Sua sessão expirou. Faça login novamente.', [
+          { text: 'OK', onPress: async () => { await signOut(); router.push('/auth/Login/login'); } }
+        ]);
+      } else {
+        Alert.alert('Erro', msg || 'Não foi possível iniciar o checkout');
+      }
+    } finally {
+      setComprando(false);
     }
   };
 

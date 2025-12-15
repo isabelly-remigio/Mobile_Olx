@@ -1,20 +1,22 @@
 // app/(tabs)/carrinho.tsx
-import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    FlatList,
-    TouchableOpacity,
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    ScrollView,
-    Alert,
-    Platform,
-} from 'react-native';
-import { theme } from '../src/theme/theme';
-import { Icon, CheckBox } from '@rneui/themed';
+import { CheckBox, Icon } from '@rneui/themed';
 import { useNavigation, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Linking,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import stripeService from '../src/services/stripeService';
+import { theme } from '../src/theme/theme';
 import { formatarPreco } from '../src/utils/formatters';
 
 // Tipos
@@ -104,18 +106,6 @@ const Carrinho = () => {
             headerShadowVisible: true,
         });
     }, [navegacao, selecionarTudo, itensCarrinho.length]);
-
-    // Atualizar selecionar tudo quando todos os itens estiverem selecionados/desmarcados
-    useEffect(() => {
-        const todosSelecionados = itensCarrinho.every(item => item.selecionado);
-        const nenhumSelecionado = itensCarrinho.every(item => !item.selecionado);
-
-        if (todosSelecionados && !selecionarTudo) {
-            setSelecionarTudo(true);
-        } else if (nenhumSelecionado && selecionarTudo) {
-            setSelecionarTudo(false);
-        }
-    }, [itensCarrinho, selecionarTudo]);
 
     // Calcular resumo do pedido apenas dos itens selecionados
     const calcularResumo = (): ResumoPedido => {
@@ -244,29 +234,51 @@ const Carrinho = () => {
             return;
         }
 
-        Alert.alert(
-            'Finalizar Compra',
-            `Total do pedido (${itensSelecionados.length} itens): ${formatarPreco(resumo.total)}`,
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Confirmar',
-                    onPress: () => {
-                        // Aqui você implementaria a lógica de checkout
-                        Alert.alert('Sucesso', 'Pedido realizado com sucesso!');
-
-                        // Remover apenas os itens selecionados do carrinho
-                        const novosItens = itensCarrinho.filter(item => !item.selecionado);
-                        setItensCarrinho(novosItens);
-                        setSelecionarTudo(false);
-                    },
-                },
-            ]
-        );
+            // Pergunta de confirmação antes de iniciar o checkout
+            Alert.alert(
+                'Finalizar Compra',
+                `Total do pedido (${itensSelecionados.length} itens): ${formatarPreco(resumo.total)}`,
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Confirmar', onPress: async () => await iniciarCheckout(itensSelecionados) },
+                ]
+            );
     };
+
+        const [estaCarregandoCheckout, setEstaCarregandoCheckout] = React.useState(false);
+
+        const iniciarCheckout = async (itensSelecionados: ItemCarrinho[]) => {
+            setEstaCarregandoCheckout(true);
+            try {
+                const payload = {
+                    items: itensSelecionados.map(i => ({ id: i.id, quantidade: i.quantidade, nome: i.nome, preco: i.preco }))
+                };
+
+                const res = await stripeService.createCheckoutSession(payload);
+
+                if (res?.url) {
+                    // Logar a URL do checkout para depuração
+                    console.log('Stripe Checkout URL:', res.url);
+
+                    // Abra o Stripe Checkout hospedado
+                    await Linking.openURL(res.url);
+
+                    // Remover os itens comprados do carrinho localmente
+                    const novosItens = itensCarrinho.filter(item => !item.selecionado);
+                    setItensCarrinho(novosItens);
+                    setSelecionarTudo(false);
+                } else {
+                    Alert.alert('Erro', 'Resposta inválida do servidor ao iniciar o pagamento.');
+                }
+            } catch (error: any) {
+                Alert.alert('Erro', error?.message || 'Não foi possível iniciar o pagamento.');
+            } finally {
+                setEstaCarregandoCheckout(false);
+            }
+        };
+
+        // PaymentSheet (nativo) foi removido; usamos apenas o Checkout hospedado.
+
 
     // Renderizar item do carrinho
     const renderizarItem = ({ item }: { item: ItemCarrinho }) => (
@@ -370,19 +382,27 @@ const Carrinho = () => {
             <TouchableOpacity
                 style={[
                     estilos.botaoFinalizar,
-                    resumo.quantidadeSelecionada === 0 && estilos.botaoFinalizarDesabilitado
+                    (resumo.quantidadeSelecionada === 0 || estaCarregandoCheckout) && estilos.botaoFinalizarDesabilitado
                 ]}
                 onPress={finalizarCompra}
                 activeOpacity={theme.opacity.active}
-                disabled={resumo.quantidadeSelecionada === 0}
+                disabled={resumo.quantidadeSelecionada === 0 || estaCarregandoCheckout}
             >
-                <Text style={estilos.textoBotaoFinalizar}>
-                    {resumo.quantidadeSelecionada > 0
-                        ? `FINALIZAR COMPRA (${resumo.quantidadeSelecionada})`
-                        : 'SELECIONE ITENS PARA COMPRAR'
-                    }
-                </Text>
+                {estaCarregandoCheckout ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator color={theme.colors.white} />
+                        <Text style={[estilos.textoBotaoFinalizar, { marginLeft: 8 }]}>Processando...</Text>
+                    </View>
+                ) : (
+                    <Text style={estilos.textoBotaoFinalizar}>
+                        {resumo.quantidadeSelecionada > 0
+                            ? `FINALIZAR COMPRA (${resumo.quantidadeSelecionada})`
+                            : 'SELECIONE ITENS PARA COMPRAR'
+                        }
+                    </Text>
+                )}
             </TouchableOpacity>
+            {/* PaymentSheet nativo removido — usamos apenas Checkout hospedado (browser) */}
         </View>
     );
 

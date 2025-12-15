@@ -48,3 +48,35 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Integração com Stripe (pagamentos)
+
+Este projeto contém uma tela de exemplo em `app/(tabs)/pagamento/index.tsx` que cria uma sessão de pagamento no backend e abre o Stripe Checkout hospedado.
+
+Endpoints backend esperados (exemplos):
+
+- `POST /pagamentos/checkout-session` — recebe `{ items: [{ id, quantidade }, ...] }` e retorna `{ url }` (URL do Stripe Checkout).
+- `POST /pagamentos/payment-intent` — recebe dados do pagamento e retorna `{ client_secret }` (usado por PaymentSheet / stripe-react-native).
+
+Recomendações:
+
+- Configure as URLs de sucesso/cancelamento (success_url / cancel_url) na criação da sessão Checkout no backend.
+- Garanta CORS e que o backend aceite requisições do app (em desenvolvimento `http://localhost:8080` pode ser usado).
+- Em apps Expo gerenciados, o fluxo mais simples é abrir a URL do Checkout usando `Linking.openURL(url)` (abre navegador externo). Para retorno ao app, considere deep links ou rotas de retorno configuradas no Stripe.
+- Se preferir uma experiência nativa (PaymentSheet), use `@stripe/stripe-react-native` — isso requer builds nativos (EAS) e configuração das chaves de publishable no app.
+
+### Stripe Checkout (recomendado — sem dependência nativa)
+
+Usamos o Stripe Checkout hospedado por padrão: o app envia os itens ao backend, o backend cria uma Checkout Session e retorna `{ url }`. O frontend abre essa URL com `Linking.openURL(url)` ou `expo-web-browser`.
+
+Vantagens:
+- Não exige dependências nativas nem builds EAS para funcionar.
+- Simples de implementar e mantém a equipe livre de configuração nativa.
+
+Se no futuro quiser uma experiência nativa (PaymentSheet), podemos reavaliar e adicionar `@stripe/stripe-react-native` quando estiverem prontos para builds EAS.
+
+Se quiser, eu posso:
+
+- Implementar confirmação via `PaymentIntent` + `@stripe/stripe-react-native` (requer EAS/development build), ou
+- Ajustar o payload enviado ao backend para incluir endereço, frete e impostos.
+
