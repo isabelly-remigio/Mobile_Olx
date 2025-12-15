@@ -51,7 +51,7 @@ export default function HomeScreen() {
   const [erro, setErro] = useState<string | null>(null);
   const [filtrosAtivos, setFiltrosAtivos] = useState<FiltrosProduto>({});
 
-  useEffect(() => {}, [produtosDiversos, carregando]);
+  useEffect(() => { }, [produtosDiversos, carregando]);
 
   useEffect(() => {
     carregarProdutos();
@@ -70,10 +70,10 @@ export default function HomeScreen() {
     } catch (error) {
       setErro('Erro ao carregar produtos. Tente novamente.');
 
-      const produtosFallback = getProdutosFallback();
+      // const produtosFallback = getProdutosFallback();
 
-      setProdutosDiversos(produtosFallback);
-      setProdutosFiltrados(produtosFallback);
+      // setProdutosDiversos(produtosFallback);
+      // setProdutosFiltrados(produtosFallback);
     } finally {
       setCarregando(false);
     }
@@ -248,9 +248,9 @@ export default function HomeScreen() {
     );
   };
 
-const handleAbrirDetalhesAnuncio = (produtoId: string) => {
-  router.push(`/(tabs)/anuncio/${produtoId}`);
-};
+  const handleAbrirDetalhesAnuncio = (produtoId: string) => {
+    router.push(`/(tabs)/anuncio/${produtoId}`);
+  };
 
   const handleCarrosselClick = (banner: Banner) => {
     if (!user) {
@@ -360,13 +360,13 @@ const handleAbrirDetalhesAnuncio = (produtoId: string) => {
         onNotificacoes={handleNotificacoes}
       />
 
-<BarraPesquisa
-  placeholder="O que você está procurando?"
-  onSearch={handleSearch}
-  onFiltrosChange={handleFiltrosChange}
-  resultadosCount={(buscando || Object.keys(filtrosAtivos).length > 0) ? produtosFiltrados.length : 0}
-  mostrarResultadosVazios={(buscando || Object.keys(filtrosAtivos).length > 0) && produtosFiltrados.length === 0}
-/>
+      <BarraPesquisa
+        placeholder="O que você está procurando?"
+        onSearch={handleSearch}
+        onFiltrosChange={handleFiltrosChange}
+        resultadosCount={(buscando || Object.keys(filtrosAtivos).length > 0) ? produtosFiltrados.length : 0}
+        mostrarResultadosVazios={(buscando || Object.keys(filtrosAtivos).length > 0) && produtosFiltrados.length === 0}
+      />
 
       <NavCategorias
         categorias={categorias}
@@ -386,9 +386,8 @@ const handleAbrirDetalhesAnuncio = (produtoId: string) => {
             >
               <View style={HomeScreenStyles.sectionContainer}>
                 <Text style={HomeScreenStyles.searchResultsTitle}>
-                  {`${produtosFiltrados.length} resultado${
-                    produtosFiltrados.length !== 1 ? 's' : ''
-                  } ${termoPesquisa ? `para "${termoPesquisa}"` : 'encontrados'}`}
+                  {`${produtosFiltrados.length} resultado${produtosFiltrados.length !== 1 ? 's' : ''
+                    } ${termoPesquisa ? `para "${termoPesquisa}"` : 'encontrados'}`}
                 </Text>
                 <FlatList
                   data={produtosFiltrados}
@@ -422,14 +421,14 @@ const handleAbrirDetalhesAnuncio = (produtoId: string) => {
 
             <View style={HomeScreenStyles.sectionContainer}>
               <Text style={HomeScreenStyles.sectionTitle}>
-                {categoriaAtiva === 'tudo' && Object.keys(filtrosAtivos).length === 0 
-                  ? 'Produtos em Destaque' 
+                {categoriaAtiva === 'tudo' && Object.keys(filtrosAtivos).length === 0
+                  ? 'Produtos em Destaque'
                   : categoriaAtiva === 'tudo'
                     ? 'Produtos Encontrados'
                     : `Produtos em ${categoriaAtiva}`}
                 {Object.keys(filtrosAtivos).length > 0 && ' (Filtrados)'}
               </Text>
-              
+
               {produtosFiltrados.length > 0 ? (
                 <FlatList
                   data={produtosFiltrados}
@@ -541,6 +540,6 @@ function getProdutosFallback(): Produto[] {
       }
     },
   ];
-  
+
   return produtos;
 }

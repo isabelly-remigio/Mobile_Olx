@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = 'https://olxmarketplace.duckdns.org/api';
 
 class ApiService {
   private api: AxiosInstance;
