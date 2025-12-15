@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { Alert } from 'react-native';
 
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = 'https://olxmarketplace.duckdns.org/api';
 
 class ApiService {
   private api: AxiosInstance;
@@ -241,7 +241,6 @@ export const publicApi = axios.create({
   },
 });
 
-// Interceptor para debug: loga requisições públicas e verifica token no storage
 publicApi.interceptors.request.use(async (config) => {
   try {
     const token = await AsyncStorage.getItem('auth_token') || await AsyncStorage.getItem('@Auth:token');

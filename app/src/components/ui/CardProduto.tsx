@@ -1,9 +1,12 @@
+
 import { Icon } from '@rneui/themed';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, Text, View } from 'react-native';
 import { CardProdutoProps } from '../../@types/home';
 import { useFavoritos } from '../../hooks/useFavoritos';
 import { formatarPreco } from '../../utils/formatters';
+
+
 
 const CardProduto = ({ produto, onPress }: CardProdutoProps) => {
   const { toggleFavorito, isFavorito } = useFavoritos();
