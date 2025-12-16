@@ -21,6 +21,7 @@ import { anuncioService } from '@/app/src/services/anuncioService';
 import pagamentoService from '@/app/src/services/pagamentoService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
 import Toast from 'react-native-toast-message';
+import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 
 // Dados de fallback caso a API falhe
 const dadosFallback: Anuncio = {

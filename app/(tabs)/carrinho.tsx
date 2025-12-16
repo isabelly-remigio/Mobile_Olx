@@ -45,7 +45,6 @@ const Carrinho = () => {
         validarParaCheckout,
         sincronizarCarrinho,
         refreshCart,
-        clearCart,
         verificarConexao,
     } = useCarrinho();
 
@@ -301,34 +300,7 @@ const Carrinho = () => {
                 },
             ]
         );
-    };
-
-    // Limpar carrinho
-    const handleClearCart = () => {
-        if (cartItems.length === 0) return;
-
-        Alert.alert(
-            'Limpar carrinho',
-            'Tem certeza que deseja remover todos os itens do carrinho?',
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Limpar tudo',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await clearCart();
-                        } catch (error) {
-                            Alert.alert('Erro', 'Não foi possível limpar o carrinho');
-                        }
-                    },
-                },
-            ]
-        );
-    };
+    }
 
     // Navegar para produtos
     const navigateToProducts = () => {
@@ -626,15 +598,6 @@ const Carrinho = () => {
                 )}
             </TouchableOpacity>
             
-            <TouchableOpacity
-                style={styles.clearCartButton}
-                onPress={handleClearCart}
-                disabled={isLoading || cartItems.length === 0}
-            >
-                <Text style={styles.clearCartText}>
-                    Limpar carrinho
-                </Text>
-            </TouchableOpacity>
         </View>
     );
 
