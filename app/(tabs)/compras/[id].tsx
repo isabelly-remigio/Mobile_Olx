@@ -150,7 +150,7 @@ export default function DetalhesCompra() {
           <Text style={styles.errorTitle}>Ops! Algo deu errado</Text>
           <Text style={styles.errorMessage}>{error}</Text>
           <TouchableOpacity 
-            onPress={() => router.back()} 
+            onPress={() => router.push('/compras')} 
             style={styles.primaryButton}
             activeOpacity={theme.opacity.active}
           >

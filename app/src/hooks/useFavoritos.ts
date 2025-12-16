@@ -16,48 +16,63 @@ export const useFavoritos = () => {
     return encontrado;
   }, [favoritos]);
 
-  // Carregar favoritos do backend
- // No hook useFavoritos, dentro da função carregarFavoritos
 const carregarFavoritos = useCallback(async () => {
   if (!user) {
     setFavoritos([]);
     return;
   }
 
+  console.log('🔄 Iniciando carregamento de favoritos...');
   setLoading(true);
   setError(null);
   
   try {
     const produtos = await favoritoService.listarFavoritos();
     
-    // DEBUG: Verificar estrutura dos produtos
-    console.log('Estrutura do primeiro produto:', produtos.length > 0 ? {
-      id: produtos[0].id,
-      nome: produtos[0].nome,
-      localizacao: produtos[0].localizacao,
-      possuiLocalizacao: !!produtos[0].localizacao,
-      todasPropriedades: Object.keys(produtos[0])
-    } : 'Sem produtos');
+    console.log('✅ Produtos recebidos da API:', produtos.length);
     
-    // Verificar se os produtos têm dados válidos
-    const produtosValidados = produtos.map(produto => ({
+    // DEBUG: Verificar estrutura do primeiro produto
+    if (produtos.length > 0) {
+      const primeiro = produtos[0];
+      console.log('📋 ESTRUTURA COMPLETA DO PRIMEIRO PRODUTO:', {
+        ...primeiro,
+        // Verificar URL da imagem
+        imagemTipo: typeof primeiro.imagem,
+        imagemValor: primeiro.imagem,
+        // Verificar outras propriedades
+        todasChaves: Object.keys(primeiro)
+      });
+      
+      // Verificar se a imagem é válida
+      if (primeiro.imagem) {
+        console.log('🔗 Teste de URL da imagem:');
+        console.log('É string?', typeof primeiro.imagem === 'string');
+        console.log('Tem conteúdo?', primeiro.imagem.length > 0);
+        console.log('Começa com http?', primeiro.imagem.startsWith('http'));
+        console.log('Começa com /?', primeiro.imagem.startsWith('/'));
+      }
+    }
+    
+    // Mapear produtos
+    const produtosMapeados = produtos.map(produto => ({
       ...produto,
       id: produto.id.toString(),
-      // Garantir que localizacao exista
       localizacao: produto.localizacao || 'Local não informado',
-      imagem: produto.imagem || 'https://via.placeholder.com/170x100?text=Sem+Imagem'
+      // Se a imagem for vazia ou inválida, usar fallback
+      imagem: produto.imagem && produto.imagem.trim() !== '' 
+        ? produto.imagem 
+        : 'https://via.placeholder.com/170x100/6C2BD9/FFFFFF?text=Produto',
     }));
     
-    setFavoritos(produtosValidados);
+    setFavoritos(produtosMapeados);
     
   } catch (err: any) {
-    const errorMessage = err.message || 'Erro ao carregar favoritos';
-    setError(errorMessage);
+    console.error('❌ Erro ao carregar favoritos:', err);
+    setError(err.message || 'Erro ao carregar favoritos');
   } finally {
     setLoading(false);
   }
 }, [user]);
-
   // Função para alternar favorito (adicionar/remover)
   const toggleFavorito = useCallback(async (produtoId: string | number) => {
     if (!user) {
