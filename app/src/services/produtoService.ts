@@ -1,5 +1,6 @@
-import { apiService, publicApi } from './api';
 import { Produto } from '@/app/src/@types/home';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiService, publicApi } from './api';
 
 // Tipos para os filtros
 export interface FiltrosProduto {
@@ -20,35 +21,35 @@ export enum CategoriaBackend {
 
 // Categorias para o frontend
 export const CATEGORIAS_FRONTEND = [
-  { 
-    id: 'tudo', 
-    nome: 'Tudo', 
+  {
+    id: 'tudo',
+    nome: 'Tudo',
     icone: 'apps',
-    backendValue: null 
+    backendValue: null
   },
-  { 
-    id: 'celulares', 
-    nome: 'Celulares', 
+  {
+    id: 'celulares',
+    nome: 'Celulares',
     icone: 'smartphone',
-    backendValue: CategoriaBackend.CELULAR_TELEFONIA 
+    backendValue: CategoriaBackend.CELULAR_TELEFONIA
   },
-  { 
-    id: 'eletrodomesticos', 
-    nome: 'Eletro', 
+  {
+    id: 'eletrodomesticos',
+    nome: 'Eletro',
     icone: 'kitchen',
-    backendValue: CategoriaBackend.ELETRODOMESTICOS 
+    backendValue: CategoriaBackend.ELETRODOMESTICOS
   },
-  { 
-    id: 'casa', 
-    nome: 'Casa', 
+  {
+    id: 'casa',
+    nome: 'Casa',
     icone: 'home',
-    backendValue: CategoriaBackend.CASA_DECORACAO_UTENSILIOS 
+    backendValue: CategoriaBackend.CASA_DECORACAO_UTENSILIOS
   },
-  { 
-    id: 'moda', 
-    nome: 'Moda', 
+  {
+    id: 'moda',
+    nome: 'Moda',
     icone: 'checkroom',
-    backendValue: CategoriaBackend.MODA 
+    backendValue: CategoriaBackend.MODA
   }
 ] as const;
 
@@ -129,7 +130,8 @@ export function transformarProdutoAPI(produtoAPI: ProdutoAPI): Produto {
 
 // IMPORTANTE: Para navegador web, use localhost normalmente
 // Mas para evitar problemas de CORS, verifique se o backend permite a origem do seu app
-const IMAGEM_BASE_URL = 'http://localhost:8080'; // Para navegador
+
+const IMAGEM_BASE_URL = 'https://olxmarketplace.duckdns.org'; // Para navegador
 
 export const produtoService = {
   // Listar todos os produtos ativos
@@ -145,8 +147,40 @@ export const produtoService = {
       
       console.log('✨ Produtos transformados:', produtosTransformados);
       return produtosTransformados;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao listar produtos:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
+      try {
+        console.error('[produtoService] response.data (string):', JSON.stringify(error?.response?.data));
+      } catch (e) {
+        console.error('[produtoService] Falha ao serializar response.data', e);
+      }
+
+      // DEBUG: se for 403, tentar novamente incluindo token (para verificar se o 403 é por falta de auth)
+      if (error?.response?.status === 403) {
+        try {
+          const token = await AsyncStorage.getItem('auth_token') || await AsyncStorage.getItem('@Auth:token');
+          console.log('[produtoService] 403 recebido, tentando novamente com Authorization:', !!token);
+          if (token) {
+            const retryResp = await publicApi.get('/produtos', {
+              headers: {
+                Authorization: `Bearer ${token}`
+              }
+            });
+            console.log('[produtoService] Retry com token retornou:', retryResp.data?.length);
+            const produtosTransformados = retryResp.data.map((produtoBackend: any) => this.transformarProduto(produtoBackend));
+            return produtosTransformados;
+          }
+        } catch (retryError) {
+          console.error('[produtoService] Retry com token falhou:', retryError);
+        }
+      }
+
       throw error;
     }
   },
@@ -155,18 +189,24 @@ export const produtoService = {
   async pesquisarProdutos(termo: string): Promise<Produto[]> {
     try {
       console.log(`🔍 Pesquisando por: "${termo}"`);
-      
+
       const response = await publicApi.get('/produtos/pesquisar', {
         params: { termo }
       });
-      
+
       console.log(`✅ Resultados da pesquisa: ${response.data.length} produtos`);
       
       return response.data.map((produtoBackend: any) => 
         this.transformarProduto(produtoBackend)
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao pesquisar produtos:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
       throw error;
     }
   },
@@ -175,40 +215,46 @@ export const produtoService = {
   async pesquisarAvancado(filtros: FiltrosProduto): Promise<Produto[]> {
     try {
       console.log('🎯 Pesquisa avançada com filtros:', filtros);
-      
+
       const params: any = {};
-      
+
       if (filtros.termo && filtros.termo.trim()) {
         params.termo = filtros.termo;
       }
-      
+
       if (filtros.categoria) {
         params.categoria = filtros.categoria;
       }
-      
+
       if (filtros.precoMin !== undefined && filtros.precoMin > 0) {
         params.precoMin = filtros.precoMin;
       }
-      
+
       if (filtros.precoMax !== undefined && filtros.precoMax > 0) {
         params.precoMax = filtros.precoMax;
       }
-      
+
       if (filtros.uf) {
         params.uf = filtros.uf;
       }
-      
+
       console.log('📡 Parâmetros da pesquisa:', params);
-      
+
       const response = await publicApi.get('/produtos/pesquisar-avancado', { params });
-      
+
       console.log(`✅ Resultados: ${response.data.length} produtos`);
       
       return response.data.map((produtoBackend: any) => 
         this.transformarProduto(produtoBackend)
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro na pesquisa avançada:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
       throw error;
     }
   },
@@ -218,8 +264,14 @@ export const produtoService = {
     try {
       const produto = await apiService.get<Produto>(`/produtos/${id}`);
       return this.transformarProduto(produto);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao buscar detalhes:', error);
+      console.error('Detalhes do erro:', {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        headers: error?.response?.headers,
+        request: error?.config && { url: error.config.url, method: error.config.method, headers: error.config.headers }
+      });
       throw error;
     }
   },
@@ -229,13 +281,13 @@ export const produtoService = {
     try {
       console.log(`📡 Chamando API: /produtos/categoria/${categoriaBackend}`);
       const response = await publicApi.get(`/produtos/categoria/${categoriaBackend}`);
-      
+
       console.log(`📦 Resposta da API para categoria ${categoriaBackend}:`, response.data);
-      
-      const produtosTransformados = response.data.map((produtoBackend: any) => 
+
+      const produtosTransformados = response.data.map((produtoBackend: any) =>
         this.transformarProduto(produtoBackend)
       );
-      
+
       console.log(`✨ ${produtosTransformados.length} produtos transformados`);
       return produtosTransformados;
     } catch (error) {
@@ -247,11 +299,12 @@ export const produtoService = {
   // Buscar por categoria do frontend
   async buscarPorCategoria(categoriaId: string): Promise<Produto[]> {
     console.log(`🎯 Buscando por categoria ID do frontend: ${categoriaId}`);
-    
+
+
     const categoriaFrontend = CATEGORIAS_FRONTEND.find(cat => cat.id === categoriaId);
-    
+
     console.log('📋 Categoria frontend encontrada:', categoriaFrontend);
-    
+
     if (!categoriaFrontend || categoriaFrontend.id === 'tudo') {
       console.log('📦 Categoria "tudo" selecionada, retornando todos os produtos');
       return this.listarTodosAtivos();
@@ -259,14 +312,13 @@ export const produtoService = {
 
     if (categoriaFrontend.backendValue) {
       console.log(`🔄 Convertendo para backend: ${categoriaFrontend.backendValue}`);
-      
       try {
         const produtos = await this.listarPorCategoria(categoriaFrontend.backendValue);
         console.log(`✅ ${produtos.length} produtos retornados da categoria ${categoriaFrontend.backendValue}`);
         return produtos;
       } catch (error) {
         console.log(`⚠️ Rota específica falhou:`, error);
-        
+
         try {
           const produtos = await this.pesquisarAvancado({
             categoria: categoriaFrontend.backendValue
@@ -297,7 +349,7 @@ export const produtoService = {
 
     // CORREÇÃO CRÍTICA: Verifique como a imagem está vindo do backend
     let imagemUrl = '';
-    
+
     if (produtoBackend.imagem) {
       // Se já for uma URL completa, use-a
       if (produtoBackend.imagem.startsWith('http')) {
@@ -325,7 +377,7 @@ export const produtoService = {
       nome: produtoBackend.nome,
       descricao: produtoBackend.descricao || '',
       preco: produtoBackend.preco || 0,
-      localizacao: produtoBackend.vendedor?.endereco?.cidade 
+      localizacao: produtoBackend.vendedor?.endereco?.cidade
         ? `${produtoBackend.vendedor.endereco.cidade}, ${produtoBackend.vendedor.endereco.uf}`
         : 'Localização não informada',
       destaque: produtoBackend.status === 'ATIVO',
@@ -352,16 +404,15 @@ export const produtoService = {
   // Gerar URL da imagem - CORRIGIDO
   getImagemUrl(nomeArquivo: string): string {
     console.log('📁 Nome do arquivo recebido:', nomeArquivo);
-    
     if (!nomeArquivo || nomeArquivo.trim() === '') {
       console.log('⚠️ Nome do arquivo vazio, retornando placeholder');
       return 'https://via.placeholder.com/170x100?text=Sem+Imagem';
     }
-    
+
     // Remove espaços extras e constrói a URL
     const arquivoLimpo = nomeArquivo.trim();
     const imagemUrl = `${IMAGEM_BASE_URL}/api/produtos/imagens/${arquivoLimpo}`;
-    
+
     console.log('🔗 URL da imagem gerada:', imagemUrl);
     return imagemUrl;
   },

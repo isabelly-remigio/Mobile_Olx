@@ -1,26 +1,28 @@
-// app/(tabs)/carrinho.tsx - VERSÃO FINAL COMPLETA E CORRIGIDA
+// app/(tabs)/carrinho.tsx - VERSÃO CORRIGIDA
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    View,
-    Text,
+    ActivityIndicator,
+    Alert,
     FlatList,
-    TouchableOpacity,
     Image,
+    Linking,
     SafeAreaView,
     ScrollView,
-    Alert,
     RefreshControl,
-    ActivityIndicator,
     AppState,
     AppStateStatus,
+    Text,
+    View,
+    TouchableOpacity,
 } from 'react-native';
-import { theme } from '../src/theme/theme';
-import { Icon, CheckBox } from '@rneui/themed';
 import { useNavigation, useRouter } from 'expo-router';
+import { Icon, CheckBox } from '@rneui/themed';
+import { theme } from '../src/theme/theme';
 import { formatarPreco } from '../src/utils/formatters';
 import { styles } from '../src/styles/TelaCarrinhoStyles';
 import { useCarrinho } from '../src/hooks/useCarrinho';
 import { useAuth } from '../src/context/AuthContext';
+import { CartItem } from '../src/@types/carrinho';
 
 const Carrinho = () => {
     const navigation = useNavigation();
@@ -73,10 +75,10 @@ const Carrinho = () => {
                     
                     <Text style={styles.titleHeader}>
                         Carrinho ({cartItems.length})
-                        {!isOnline && ' (Offline)'} {/* CORRIGIDO: isOnline === false -> !isOnline */}
+                        {!isOnline && ' (Offline)'}
                     </Text>
                     
-                    {!isOnline && ( /* CORRIGIDO: isOnline === false -> !isOnline */
+                    {!isOnline && (
                         <Icon
                             name="wifi-off"
                             type="material-community"
@@ -99,13 +101,13 @@ const Carrinho = () => {
                         <TouchableOpacity
                             onPress={handleSincronizar}
                             style={styles.syncButton}
-                            disabled={isLoading || isOnline} /* CORRIGIDO: isOnline === true -> isOnline */
+                            disabled={isLoading || isOnline}
                         >
                             <Icon
                                 name="sync"
                                 type="material-community"
                                 size={22}
-                                color={(isLoading || isOnline) ? theme.colors.gray400 : theme.colors.primary[500]} /* CORRIGIDO */
+                                color={(isLoading || isOnline) ? theme.colors.gray400 : theme.colors.primary[500]}
                             />
                         </TouchableOpacity>
                     )}
@@ -221,15 +223,15 @@ const Carrinho = () => {
         }
     };
 
-   // Remover item - CORRIGIDA
+    // Remover item
     const handleRemoveItem = (produtoId: number, itemName: string) => {
         console.log('=== DEBUG: Iniciando remoção ===');
         console.log('Produto ID:', produtoId);
         console.log('Item Name:', itemName);
         console.log('Cart Items antes:', cartItems.length);
-        console.log('Item existe?', cartItems.find(item => String(item.produtoId) === String(produtoId)));
+        console.log('Item existe?', cartItems.find(item => item.produtoId === produtoId));
         
-        const item = cartItems.find(item => String(item.produtoId) === String(produtoId));
+        const item = cartItems.find(item => item.produtoId === produtoId);
         if (!item) {
             console.error('Item não encontrado no carrinho!');
             Alert.alert('Erro', 'Item não encontrado no carrinho');
@@ -247,7 +249,7 @@ const Carrinho = () => {
                     onPress: async () => {
                         console.log('Confirmado: removendo item...');
                         try {
-                            const success = await removeItem(String(produtoId));
+                            const success = await removeItem(produtoId); // ✅ Agora passando number
                             if (success) {
                                 console.log('Item removido com sucesso!');
                                 console.log('Cart Items depois:', cartItems.length);
@@ -264,7 +266,8 @@ const Carrinho = () => {
             ]
         );
     };
-    // Remover itens selecionados - VERSÃO DEBUG
+
+    // Remover itens selecionados
     const handleRemoveSelectedItems = () => {
         if (selectedItemsCount === 0) {
             Alert.alert('Nenhum item selecionado', 'Selecione itens para remover.');
@@ -431,13 +434,14 @@ const Carrinho = () => {
                         text: 'Confirmar',
                         onPress: () => {
                             // Navegar para tela de checkout
+                            //TEM QUE COLOCAAR A ROTA CERTA AQUI DA TELA DE PAGAMENTO
                             const selectedItems = cartItems.filter(item => item.selecionado);
                             router.push({
-                                pathname: '/checkout',
+                                pathname: '/',
                                 params: {
                                     items: JSON.stringify(selectedItems),
                                     total: summary.total.toString(),
-                                    isOnline: isOnline.toString(), /* CORRIGIDO: isOnline?.toString() -> isOnline.toString() */
+                                    isOnline: isOnline.toString(),
                                 }
                             });
                         },
@@ -451,7 +455,7 @@ const Carrinho = () => {
     };
 
     // Renderizar item do carrinho
-    const renderItem = ({ item }: { item: any }) => (
+    const renderItem = ({ item }: { item: CartItem }) => (
         <View style={[
             styles.cartItem,
             !item.disponivel && styles.itemIndisponivel
@@ -580,7 +584,7 @@ const Carrinho = () => {
                 </Text>
             </View>
 
-            {!isOnline && ( /* CORRIGIDO: isOnline === false -> !isOnline */
+            {!isOnline && (
                 <View style={styles.offlineWarning}>
                     <Icon
                         name="wifi-off"

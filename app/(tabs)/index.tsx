@@ -1,27 +1,27 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  ScrollView,
-  FlatList,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
-import { Text, Icon } from '@rneui/themed';
-import { useRouter } from 'expo-router';
 import { useAuth } from '@/app/src/context/AuthContext';
-import Header from '../src/components/layout/Header';
-import NavCategorias from '../src/components/ui/NavCategorias';
-import BarraPesquisa from '../src/components/ui/BarraPesquisa';
-import Carrossel from '../src/components/ui/Carrossel';
-import CardProduto from '../src/components/ui/CardProduto';
-import { HomeScreenStyles } from '../src/styles/HomeScreenStyles';
-import { theme } from '../src/theme/theme';
-import { produtoService, CATEGORIAS_FRONTEND, FiltrosProduto } from '../src/services/produtoService';
+import { Icon, Text } from '@rneui/themed';
+import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Categoria,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  ScrollView,
+  View,
+} from 'react-native';
+import {
   Banner,
+  Categoria,
   Produto,
 } from '../src/@types/home';
+import Header from '../src/components/layout/Header';
+import BarraPesquisa from '../src/components/ui/BarraPesquisa';
+import CardProduto from '../src/components/ui/CardProduto';
+import Carrossel from '../src/components/ui/Carrossel';
+import NavCategorias from '../src/components/ui/NavCategorias';
+import { CATEGORIAS_FRONTEND, FiltrosProduto, produtoService } from '../src/services/produtoService';
+import { HomeScreenStyles } from '../src/styles/HomeScreenStyles';
+import { theme } from '../src/theme/theme';
 
 // Categorias para os ícones
 const categorias: Categoria[] = CATEGORIAS_FRONTEND.map(cat => ({
@@ -51,7 +51,7 @@ export default function HomeScreen() {
   const [erro, setErro] = useState<string | null>(null);
   const [filtrosAtivos, setFiltrosAtivos] = useState<FiltrosProduto>({});
 
-  useEffect(() => {}, [produtosDiversos, carregando]);
+  useEffect(() => { }, [produtosDiversos, carregando]);
 
   useEffect(() => {
     carregarProdutos();
@@ -70,10 +70,10 @@ export default function HomeScreen() {
     } catch (error) {
       setErro('Erro ao carregar produtos. Tente novamente.');
 
-      const produtosFallback = getProdutosFallback();
+      // const produtosFallback = getProdutosFallback();
 
-      setProdutosDiversos(produtosFallback);
-      setProdutosFiltrados(produtosFallback);
+      // setProdutosDiversos(produtosFallback);
+      // setProdutosFiltrados(produtosFallback);
     } finally {
       setCarregando(false);
     }
@@ -248,9 +248,9 @@ export default function HomeScreen() {
     );
   };
 
-const handleAbrirDetalhesAnuncio = (produtoId: string) => {
-  router.push(`/(tabs)/anuncio/${produtoId}`);
-};
+  const handleAbrirDetalhesAnuncio = (produtoId: string) => {
+    router.push(`/(tabs)/anuncio/${produtoId}`);
+  };
 
   const handleCarrosselClick = (banner: Banner) => {
     if (!user) {
@@ -360,13 +360,15 @@ const handleAbrirDetalhesAnuncio = (produtoId: string) => {
         onNotificacoes={handleNotificacoes}
       />
 
-<BarraPesquisa
-  placeholder="O que você está procurando?"
-  onSearch={handleSearch}
-  onFiltrosChange={handleFiltrosChange}
-  resultadosCount={(buscando || Object.keys(filtrosAtivos).length > 0) ? produtosFiltrados.length : 0}
-  mostrarResultadosVazios={(buscando || Object.keys(filtrosAtivos).length > 0) && produtosFiltrados.length === 0}
-/>
+
+      <BarraPesquisa
+        placeholder="O que você está procurando?"
+        onSearch={handleSearch}
+        onFiltrosChange={handleFiltrosChange}
+        resultadosCount={(buscando || Object.keys(filtrosAtivos).length > 0) ? produtosFiltrados.length : 0}
+        mostrarResultadosVazios={(buscando || Object.keys(filtrosAtivos).length > 0) && produtosFiltrados.length === 0}
+      />
+
 
       <NavCategorias
         categorias={categorias}
@@ -386,9 +388,8 @@ const handleAbrirDetalhesAnuncio = (produtoId: string) => {
             >
               <View style={HomeScreenStyles.sectionContainer}>
                 <Text style={HomeScreenStyles.searchResultsTitle}>
-                  {`${produtosFiltrados.length} resultado${
-                    produtosFiltrados.length !== 1 ? 's' : ''
-                  } ${termoPesquisa ? `para "${termoPesquisa}"` : 'encontrados'}`}
+                  {`${produtosFiltrados.length} resultado${produtosFiltrados.length !== 1 ? 's' : ''
+                    } ${termoPesquisa ? `para "${termoPesquisa}"` : 'encontrados'}`}
                 </Text>
                 <FlatList
                   data={produtosFiltrados}
@@ -422,14 +423,14 @@ const handleAbrirDetalhesAnuncio = (produtoId: string) => {
 
             <View style={HomeScreenStyles.sectionContainer}>
               <Text style={HomeScreenStyles.sectionTitle}>
-                {categoriaAtiva === 'tudo' && Object.keys(filtrosAtivos).length === 0 
-                  ? 'Produtos em Destaque' 
+                {categoriaAtiva === 'tudo' && Object.keys(filtrosAtivos).length === 0
+                  ? 'Produtos em Destaque'
                   : categoriaAtiva === 'tudo'
                     ? 'Produtos Encontrados'
                     : `Produtos em ${categoriaAtiva}`}
                 {Object.keys(filtrosAtivos).length > 0 && ' (Filtrados)'}
               </Text>
-              
+
               {produtosFiltrados.length > 0 ? (
                 <FlatList
                   data={produtosFiltrados}
@@ -541,6 +542,6 @@ function getProdutosFallback(): Produto[] {
       }
     },
   ];
-  
+
   return produtos;
 }

@@ -1,8 +1,8 @@
-import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { Alert } from 'react-native';
 
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = 'https://olxmarketplace.duckdns.org/api';
 
 class ApiService {
   private api: AxiosInstance;
@@ -95,6 +95,17 @@ class ApiService {
             'Tente novamente mais tarde.',
             [{ text: 'OK' }]
           );
+        }
+
+        // Log detalhado do body da resposta (se houver)
+        try {
+          console.error('[apiService] Response error details:', {
+            url,
+            status: error.response?.status,
+            data: JSON.stringify(error.response?.data)
+          });
+        } catch (e) {
+          console.error('[apiService] Falha ao serializar response.data', e);
         }
 
         return Promise.reject(error);
@@ -229,3 +240,35 @@ export const publicApi = axios.create({
     'X-Requested-With': 'XMLHttpRequest',
   },
 });
+
+publicApi.interceptors.request.use(async (config) => {
+  try {
+    const token = await AsyncStorage.getItem('auth_token') || await AsyncStorage.getItem('@Auth:token');
+    console.log('[publicApi] Requisição:', {
+      method: config.method,
+      url: `${config.baseURL}${config.url}`,
+      headers: config.headers,
+      hasTokenInStorage: !!token,
+    });
+  } catch (e) {
+    console.log('[publicApi] Erro ao inspecionar token:', e);
+  }
+  return config;
+}, (error) => Promise.reject(error));
+
+// Log de resposta para publicApi (inclui erros)
+publicApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    try {
+      console.error('[publicApi] Response error:', {
+        url: error.config?.url,
+        status: error.response?.status,
+        data: JSON.stringify(error.response?.data)
+      });
+    } catch (e) {
+      console.error('[publicApi] Falha ao serializar response.data', e);
+    }
+    return Promise.reject(error);
+  }
+);

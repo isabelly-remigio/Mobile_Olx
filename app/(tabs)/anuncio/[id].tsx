@@ -14,11 +14,11 @@ import { Icon, Divider } from '@rneui/themed';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CarrosselAnuncio } from '@/app/src/components/ui/CarrosselAnuncio';
 import { InfoAnunciante } from '@/app/src/components/ui/InfoAnunciante';
-import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 import { LocalizacaoAnuncio } from '@/app/src/components/ui/LocalizacaoAnuncio';
 import { useCarrinho } from '@/app/src/hooks/useCarrinho';
 import { Anuncio } from '@/app/src/@types/anuncio';
 import { anuncioService } from '@/app/src/services/anuncioService';
+import pagamentoService from '@/app/src/services/pagamentoService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
 import Toast from 'react-native-toast-message';
 
@@ -220,7 +220,15 @@ export default function DetalhesAnuncio() {
 
   const handleComprarAgora = async () => {
     if (!anuncio) return;
-    
+
+    if (!isAuthenticated) {
+      Alert.alert('Login necessário', 'Faça login para concluir a compra', [
+        { text: 'Cancelar' },
+        { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') }
+      ]);
+      return;
+    }
+
     try {
       // Primeiro adiciona ao carrinho
       const produtoId = anuncio.produtoId || parseInt(anuncio.id);

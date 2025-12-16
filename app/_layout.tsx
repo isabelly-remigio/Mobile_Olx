@@ -1,9 +1,9 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
-import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { AppProvider } from './src/AppProvider';
 import Footer from './src/components/ui/Footer';
-import { usePathname } from 'expo-router';
+import { useAuth } from './src/context/AuthContext';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -81,8 +81,8 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
+    <AppProvider>
       <RootLayoutNav />
-    </AuthProvider>
+    </AppProvider>
   );
 }
