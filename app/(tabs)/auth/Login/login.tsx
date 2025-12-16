@@ -163,28 +163,6 @@ const TelaLogin = () => {
             />
           </View>
 
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Ou conecte com</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity 
-              style={styles.socialButtonGoogle}
-              onPress={loginGoogle}
-            >
-              <Text style={styles.socialButtonText}>G</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.socialButtonFacebook}
-              onPress={loginFacebook}
-            >
-              <Text style={styles.socialButtonText}>f</Text>
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.registerContainer}>
             <Text style={styles.registerText}>Não tem uma conta? </Text>
             <TouchableOpacity onPress={irParaCadastro}>

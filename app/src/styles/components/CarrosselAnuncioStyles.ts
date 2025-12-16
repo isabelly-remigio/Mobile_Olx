@@ -1,5 +1,5 @@
 // styles/Componentes/CarrosselAnuncioStyles.ts
-import { StyleSheet, Dimensions } from 'react-native';
+import { Dimensions, StyleSheet } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -30,7 +30,6 @@ export const CarrosselAnuncioStyles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   
   loadingOverlay: {
@@ -41,7 +40,8 @@ export const CarrosselAnuncioStyles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: '#F3F4F6',
+    zIndex: 1,
   },
   
   badgeContainer: {

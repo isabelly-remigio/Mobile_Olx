@@ -198,33 +198,6 @@ const TelaCadastro = () => {
             <Text style={TelaCadastroStyles.headerTitle}>Cadastrar</Text>
           </View>
 
-          {/* Login social */}
-          <View style={TelaCadastroStyles.socialSection}>
-            <Text style={TelaCadastroStyles.socialTitle}>Conecte com</Text>
-            <View style={TelaCadastroStyles.socialButtonsContainer}>
-              {/* Google */}
-              <TouchableOpacity onPress={() => alert('Login Google')}>
-                <View style={[TelaCadastroStyles.socialButton, TelaCadastroStyles.googleButton]}>
-                  <Text style={TelaCadastroStyles.socialButtonText}>G</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Facebook */}
-              <TouchableOpacity onPress={() => alert('Login Facebook')}>
-                <View style={[TelaCadastroStyles.socialButton, TelaCadastroStyles.facebookButton]}>
-                  <Text style={TelaCadastroStyles.socialButtonText}>f</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Divider */}
-          <View style={TelaCadastroStyles.dividerContainer}>
-            <View style={TelaCadastroStyles.dividerLine} />
-            <Text style={TelaCadastroStyles.dividerText}>ou</Text>
-            <View style={TelaCadastroStyles.dividerLine} />
-          </View>
-
           <Text style={TelaCadastroStyles.infoText}>
             Nos informe alguns dados para melhorar sua experiência.
           </Text>

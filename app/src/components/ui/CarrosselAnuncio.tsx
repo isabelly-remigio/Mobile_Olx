@@ -1,15 +1,15 @@
 // components/ui/CarrosselAnuncio.tsx
-import React, { useState, useRef } from 'react';
+import { Icon, Text } from '@rneui/themed';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Image,
-  ScrollView,
-  Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
-  ActivityIndicator,
+    ActivityIndicator,
+    Dimensions,
+    Image,
+    NativeScrollEvent,
+    NativeSyntheticEvent,
+    ScrollView,
+    View,
 } from 'react-native';
-import { Text, Icon } from '@rneui/themed';
 import { CarrosselAnuncioProps } from '../../@types/anuncio';
 import { CarrosselAnuncioStyles } from '../../styles/components/CarrosselAnuncioStyles';
 
@@ -17,13 +17,34 @@ const { width: screenWidth } = Dimensions.get('window');
 
 export const CarrosselAnuncio: React.FC<CarrosselAnuncioProps> = ({ imagens }) => {
   const [imagemAtual, setImagemAtual] = useState(0);
-  const [carregando, setCarregando] = useState(true);
+  const [imagensCarregadas, setImagensCarregadas] = useState<Set<number>>(new Set());
   const scrollViewRef = useRef<ScrollView>(null);
+  const loadingRefs = useRef<Record<number, boolean>>({});
+
+  // Reset quando as imagens mudarem
+  useEffect(() => {
+    setImagensCarregadas(new Set());
+    loadingRefs.current = {};
+  }, [imagens]);
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const index = Math.round(offsetX / screenWidth);
     setImagemAtual(index);
+  };
+
+  const marcarComoCarregada = (index: number) => {
+    // Evita atualizações múltiplas
+    if (loadingRefs.current[index]) {
+      return;
+    }
+    loadingRefs.current[index] = true;
+    
+    setImagensCarregadas(prev => {
+      const novo = new Set(prev);
+      novo.add(index);
+      return novo;
+    });
   };
 
   // Se não tiver imagens
@@ -54,26 +75,30 @@ export const CarrosselAnuncio: React.FC<CarrosselAnuncioProps> = ({ imagens }) =
         style={CarrosselAnuncioStyles.scrollView}
         contentContainerStyle={CarrosselAnuncioStyles.scrollContent}
       >
-        {imagens.map((imagem, index) => (
-          <View key={index} style={CarrosselAnuncioStyles.imageContainer}>
-            <Image
-              source={{ uri: imagem }}
-              style={CarrosselAnuncioStyles.image}
-              resizeMode="cover"
-              onLoadStart={() => setCarregando(true)}
-              onLoadEnd={() => setCarregando(false)}
-              onError={() => {
-                console.log('Erro ao carregar imagem:', imagem);
-                setCarregando(false);
-              }}
-            />
-            {carregando && (
-              <View style={CarrosselAnuncioStyles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#6D0AD6" />
-              </View>
-            )}
-          </View>
-        ))}
+        {imagens.map((imagem, index) => {
+          const estaCarregada = imagensCarregadas.has(index);
+          
+          return (
+            <View key={index} style={CarrosselAnuncioStyles.imageContainer}>
+              <Image
+                source={{ uri: imagem }}
+                style={CarrosselAnuncioStyles.image}
+                resizeMode="contain"
+                onLoadEnd={() => {
+                  marcarComoCarregada(index);
+                }}
+                onError={() => {
+                  marcarComoCarregada(index);
+                }}
+              />
+              {!estaCarregada && (
+                <View style={CarrosselAnuncioStyles.loadingOverlay}>
+                  <ActivityIndicator size="large" color="#6D0AD6" />
+                </View>
+              )}
+            </View>
+          );
+        })}
       </ScrollView>
 
       {/* Badge de quantidade */}
