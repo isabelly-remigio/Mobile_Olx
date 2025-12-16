@@ -88,15 +88,7 @@ export const InfoAnunciante: React.FC<InfoAnuncianteProps> = ({ anunciante, onAb
         </View>
       </View>
 
-      <TouchableOpacity
-        style={InfoAnuncianteStyles.button}
-        onPress={onAbrirPerfil}
-        activeOpacity={0.7}
-      >
-        <Text style={InfoAnuncianteStyles.buttonText}>
-          Acessar perfil do anunciante
-        </Text>
-      </TouchableOpacity>
+    
     </View>
   );
 };
