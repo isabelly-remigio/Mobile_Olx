@@ -1,33 +1,33 @@
-// app/(tabs)/carrinho.tsx - VERSÃO CORRIGIDA
-import React, { useState, useEffect, useRef } from 'react';
+import { CheckBox, Icon } from '@rneui/themed';
+import { useNavigation, useRouter } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    AppState,
+    AppStateStatus,
     FlatList,
     Image,
     Linking,
+    Platform,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
-    RefreshControl,
-    AppState,
-    AppStateStatus,
     Text,
-    View,
     TouchableOpacity,
+    View,
 } from 'react-native';
-import { useNavigation, useRouter } from 'expo-router';
-import { Icon, CheckBox } from '@rneui/themed';
+import { CartItem } from '../src/@types/carrinho';
+import { useAuth } from '../src/context/AuthContext';
+import { useCarrinho } from '../src/hooks/useCarrinho';
+import { styles } from '../src/styles/TelaCarrinhoStyles';
 import { theme } from '../src/theme/theme';
 import { formatarPreco } from '../src/utils/formatters';
-import { styles } from '../src/styles/TelaCarrinhoStyles';
-import { useCarrinho } from '../src/hooks/useCarrinho';
-import { useAuth } from '../src/context/AuthContext';
-import { CartItem } from '../src/@types/carrinho';
 
 const Carrinho = () => {
     const navigation = useNavigation();
     const router = useRouter();
-    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const { isAuthenticated, loading: authLoading } = useAuth();
     const {
         cartItems,
         selectAll,
@@ -46,7 +46,9 @@ const Carrinho = () => {
         sincronizarCarrinho,
         refreshCart,
         verificarConexao,
+        iniciarCheckoutDoCarrinho,
     } = useCarrinho();
+
 
     const appState = useRef(AppState.currentState);
     const [appStateVisible, setAppStateVisible] = useState(appState.current);
@@ -184,6 +186,8 @@ const Carrinho = () => {
 
     const summary = calculateSummary();
 
+
+
     // Sincronizar carrinho
     const handleSincronizar = async () => {
         if (!isAuthenticated) {
@@ -309,6 +313,7 @@ const Carrinho = () => {
 
     // Finalizar compra
     const handleCheckout = async () => {
+        console.log('[carrinho] handleCheckout: iniciada, selectedItemsCount=', selectedItemsCount, 'isAuthenticated=', isAuthenticated, 'isOnline=', isOnline, 'isLoading=', isLoading);
         if (!isAuthenticated) {
             Alert.alert(
                 'Login necessário',
@@ -334,8 +339,9 @@ const Carrinho = () => {
 
         try {
             // Verificar conexão antes do checkout
+            console.log('[carrinho] handleCheckout: verificando conexão...');
             const conectado = await verificarConexao();
-            
+            console.log('[carrinho] handleCheckout: conectado=', conectado);
             if (!conectado) {
                 Alert.alert(
                     'Modo Offline',
@@ -350,15 +356,17 @@ const Carrinho = () => {
 
             await prosseguirCheckout();
         } catch (error) {
+            console.error('[carrinho] handleCheckout erro:', error);
             Alert.alert('Erro', 'Não foi possível validar o carrinho. Tente novamente.');
         }
     };
 
     const prosseguirCheckout = async () => {
         try {
+            console.log('[carrinho] prosseguirCheckout: iniciando validação do carrinho...');
             // Validar carrinho antes do checkout
             const validacao = await validarParaCheckout();
-            
+            console.log('[carrinho] prosseguirCheckout: validacao=', validacao);
             if (!validacao.valido) {
                 Alert.alert(
                     'Itens indisponíveis',
@@ -371,7 +379,7 @@ const Carrinho = () => {
                                 // Criar uma cópia dos itens disponíveis
                                 const itensDisponiveis = cartItems.filter(item => 
                                     !validacao.itensIndisponiveis.some(
-                                        indisponivel => indisponivel.produtoId === item.produtoId
+                                        (indisponivel: { produtoId: number }) => indisponivel.produtoId === item.produtoId
                                     )
                                 );
                                 
@@ -393,36 +401,88 @@ const Carrinho = () => {
                 return;
             }
 
-            // Prosseguir para checkout
-            Alert.alert(
-                'Finalizar Compra',
-                `Total do pedido (${selectedItemsCount} itens): ${formatarPreco(summary.total)}\n\nDeseja prosseguir com a compra?`,
-                [
-                    {
-                        text: 'Cancelar',
-                        style: 'cancel',
-                    },
-                    {
-                        text: 'Confirmar',
-                        onPress: () => {
-                            // Navegar para tela de checkout
-                            //TEM QUE COLOCAAR A ROTA CERTA AQUI DA TELA DE PAGAMENTO
-                            const selectedItems = cartItems.filter(item => item.selecionado);
-                            router.push({
-                                pathname: '/',
-                                params: {
-                                    items: JSON.stringify(selectedItems),
-                                    total: summary.total.toString(),
-                                    isOnline: isOnline.toString(),
-                                }
-                            });
-                        },
-                    },
-                ]
-            );
+            // Prosseguir para checkout automaticamente (sem alerta de confirmação)
+            console.log('[carrinho] prosseguirCheckout: iniciando iniciarCheckoutDoCarrinho() automaticamente');
+            try {
+                console.log('[carrinho] prosseguirCheckout: chamando iniciarCheckoutDoCarrinho()');
+                const resp = await iniciarCheckoutDoCarrinho();
+                console.log('[carrinho] iniciarCheckoutDoCarrinho retornou:', resp);
+                if (!resp || !resp.checkoutUrl) {
+                    Alert.alert('Erro', resp?.error || 'Não foi possível iniciar o checkout');
+                    return;
+                }
+
+                const url = resp.checkoutUrl;
+                console.log('[carrinho] prosseguirCheckout: opening url=', url);
+                try {
+                    if (Platform.OS === 'web') {
+                        window.location.href = url;
+                    } else {
+                        const can = await Linking.canOpenURL(url);
+                        console.log('[carrinho] prosseguirCheckout: Linking.canOpenURL =>', can, ' url=', url);
+                        if (can) {
+                            await Linking.openURL(url);
+                        } else {
+                            Alert.alert('Erro', 'Não foi possível abrir a URL de checkout.');
+                        }
+                    }
+                } catch (err) {
+                    console.error('[carrinho] prosseguirCheckout erro ao abrir URL:', err);
+                    Alert.alert('Erro', 'Não foi possível abrir a URL de checkout.');
+                }
+            } catch (error: any) {
+                console.error('[carrinho] erro ao iniciar checkout automaticamente:', error);
+                const msg = error?.message || 'Erro ao iniciar checkout';
+                Alert.alert('Erro', msg);
+            }
         } catch (error) {
-            console.error('Erro no checkout:', error);
+            console.error('[carrinho] Erro no checkout:', error);
             Alert.alert('Erro', 'Não foi possível processar o checkout. Tente novamente.');
+        }
+    };
+
+    // Debug: iniciar checkout direto (long-press no botão) para testar se o endpoint é chamado
+    const immediateCheckoutForDebug = async () => {
+        console.log('[carrinho] immediateCheckoutForDebug: iniciando');
+        try {
+            const conectado = await verificarConexao();
+            console.log('[carrinho] immediateCheckoutForDebug: conectado=', conectado);
+            if (!conectado) {
+                Alert.alert('Sem conexão', 'Conecte-se à internet para finalizar o checkout.');
+                return;
+            }
+
+            console.log('[carrinho] immediateCheckoutForDebug: chamando iniciarCheckoutDoCarrinho()');
+            const resp = await iniciarCheckoutDoCarrinho();
+            console.log('[carrinho] immediateCheckoutForDebug: resp=', resp);
+
+            if (!resp || !resp.checkoutUrl) {
+                Alert.alert('Erro', resp?.error || 'Não foi possível iniciar o checkout');
+                return;
+            }
+
+            const url = resp.checkoutUrl;
+            console.log('[carrinho] immediateCheckoutForDebug: opening url=', url);
+            try {
+                if (Platform.OS === 'web') {
+                    // navigate current tab in web to avoid popup blockers
+                    window.location.href = url;
+                } else {
+                    const can = await Linking.canOpenURL(url);
+                    console.log('[carrinho] immediateCheckoutForDebug: Linking.canOpenURL =>', can, ' url=', url);
+                    if (can) {
+                        await Linking.openURL(url);
+                    } else {
+                        Alert.alert('Erro', 'Não foi possível abrir a URL de checkout.');
+                    }
+                }
+            } catch (err) {
+                console.error('[carrinho] immediateCheckoutForDebug erro ao abrir URL:', err);
+                Alert.alert('Erro', 'Não foi possível abrir a URL de checkout.');
+            }
+        } catch (error: any) {
+            console.error('[carrinho] immediateCheckoutForDebug erro:', error);
+            Alert.alert('Erro', error?.message || 'Erro ao iniciar checkout');
         }
     };
 
@@ -583,6 +643,7 @@ const Carrinho = () => {
                     (selectedItemsCount === 0 || isLoading) && styles.checkoutButtonDisabled
                 ]}
                 onPress={handleCheckout}
+                onLongPress={immediateCheckoutForDebug}
                 activeOpacity={theme.opacity.active}
                 disabled={selectedItemsCount === 0 || isLoading}
             >

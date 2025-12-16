@@ -1,27 +1,29 @@
 // app/(tabs)/anuncio/[id].tsx
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  SafeAreaView,
-  Linking,
-  ActivityIndicator
-} from 'react-native';
-import { Icon, Divider } from '@rneui/themed';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Anuncio } from '@/app/src/@types/anuncio';
+import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 import { CarrosselAnuncio } from '@/app/src/components/ui/CarrosselAnuncio';
 import { InfoAnunciante } from '@/app/src/components/ui/InfoAnunciante';
 import { LocalizacaoAnuncio } from '@/app/src/components/ui/LocalizacaoAnuncio';
+import { useAuth } from '@/app/src/context/AuthContext';
 import { useCarrinho } from '@/app/src/hooks/useCarrinho';
-import { Anuncio } from '@/app/src/@types/anuncio';
 import { anuncioService } from '@/app/src/services/anuncioService';
 import pagamentoService from '@/app/src/services/pagamentoService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
+import { Divider, Icon } from '@rneui/themed';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import Toast from 'react-native-toast-message';
-import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 
 // Dados de fallback caso a API falhe
 const dadosFallback: Anuncio = {
@@ -67,6 +69,7 @@ export default function DetalhesAnuncio() {
   
   // USE useCarrinho diretamente em vez de useCart
   const { addToCart, isLoading: carrinhoLoading } = useCarrinho();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (id) {
@@ -231,48 +234,40 @@ export default function DetalhesAnuncio() {
     }
 
     try {
-      // Primeiro adiciona ao carrinho
+      // Criar checkout direto para este produto
       const produtoId = anuncio.produtoId || parseInt(anuncio.id);
-      
+
       if (isNaN(produtoId)) {
         throw new Error('ID do produto inválido');
       }
-      
-      const resultado = await addToCart(produtoId, 1);
-      
-      if (resultado) {
-        // Feedback visual
-        setProdutoAdicionado(anuncio.nome);
-        setMostrarFeedbackCarrinho(true);
-        
-        // Ocultar feedback após 3 segundos
-        setTimeout(() => {
-          setMostrarFeedbackCarrinho(false);
-        }, 3000);
-        
-        // Depois vai para o checkout
-        setTimeout(() => {
-          Alert.alert(
-            'Compra Rápida',
-            `${anuncio.nome} adicionado ao carrinho! Deseja ir para o checkout?`,
-            [
-              {
-                text: 'Continuar comprando',
-                style: 'cancel',
-              },
-              // {
-              //   text: 'Ir para checkout',
-              //   onPress: () => router.push('/checkout'),
-              // },
-            ]
-          );
-        }, 1000);
-      } else {
-        Alert.alert('Erro', 'Não foi possível adicionar ao carrinho');
+
+      console.log('[anuncio] handleComprarAgora: criando checkout para produtoId=', produtoId);
+
+      const resp = await pagamentoService.createCheckout({ produtoId, quantity: 1 });
+      console.log('[anuncio] handleComprarAgora: resposta createCheckout=', resp);
+
+      if (!resp || !resp.checkoutUrl) {
+        Alert.alert('Erro', resp?.error || 'Não foi possível iniciar o checkout');
+        return;
       }
+
+      const url = resp.checkoutUrl;
+      try {
+        if (Platform.OS === 'web') {
+          window.location.href = url;
+        } else {
+          const can = await Linking.canOpenURL(url);
+          if (can) await Linking.openURL(url);
+          else Alert.alert('Erro', 'Não foi possível abrir a URL de checkout');
+        }
+      } catch (err) {
+        console.error('[anuncio] handleComprarAgora erro ao abrir URL:', err);
+        Alert.alert('Erro', 'Não foi possível abrir a URL de checkout');
+      }
+
     } catch (error: any) {
       console.error('Erro ao comprar agora:', error);
-      Alert.alert('Erro', 'Não foi possível realizar a compra');
+      Alert.alert('Erro', error?.message || 'Não foi possível realizar a compra');
     }
   };
 

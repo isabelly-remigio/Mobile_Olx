@@ -82,8 +82,9 @@ const ComprasScreen: React.FC<ComprasScreenProps> = ({ navegacao }) => {
 
       const mapped: ItemCompra[] = resp.map((p: any) => {
         const produto = p.produto || p.produtoDto || p.produtoResponse || {};
-        const titulo = produto.titulo || produto.nome || produto.title || produto.name || produto.descricao || 'Produto';
-        const imagem = produto.imagem || produto.imagemUrl || produto.imagemPrincipal || produto.imagens?.[0] || 'https://via.placeholder.com/150';
+        // Prefer backend-provided product name fields (root or nested)
+        const titulo = p.produtoNome || p.produtoName || produto.titulo || produto.nome || produto.title || produto.name || produto.descricao || 'Produto';
+        const imagem = p.produtoImagem || p.produtoImage || produto.imagem || produto.imagemUrl || produto.imagemPrincipal || produto.imagens?.[0] || 'https://via.placeholder.com/150';
         const preco = (p.amountCents ?? produto.preco ?? produto.price ?? 0) / 100;
         const data = formatarDataIso(p.dataConfirmacao || p.dataCriacao || p.createdAt || p.data);
         const status = mapStatus(p.status || p.statusPagamento || p.statusPagamento?.name || produto.status);
@@ -155,12 +156,12 @@ const ComprasScreen: React.FC<ComprasScreenProps> = ({ navegacao }) => {
 
   // Função para navegar para os anúncios
   const navegarParaAnuncios = () => {
-    navegacao.navigate('Anuncios');
+    router.push('/(tabs)/explorar');
   };
 
   // Função para navegar para detalhes da compra
   const navegarParaDetalhesCompra = (compra: ItemCompra) => {
-    navegacao.navigate('DetalhesCompra', { compra });
+    router.push({ pathname: '/compras/[id]', params: { id: String(compra.id) } });
   };
 
   // Renderizar item da lista

@@ -1,9 +1,9 @@
 // src/context/CartContext.tsx
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
+import { CarrinhoItemAPI, CartItem } from '../@types/carrinho';
 import { apiService } from '../services/api';
-import { CartItem, CarrinhoItemAPI } from '../@types/carrinho';
 
 interface CartContextData {
   items: CartItem[];
@@ -103,47 +103,60 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setLoading(true);
       setError(null);
+      const doPost = async () => apiService.post<CarrinhoItemAPI>('/carrinho/adicionar', null, { params: { produtoId, quantidade } });
 
-      const response = await apiService.post<CarrinhoItemAPI>('/carrinho/adicionar', null, {
-        params: { produtoId, quantidade }
-      });
+      // Try the request; on certain server errors, we'll attempt a refresh+retry
+      let response = null as any;
+      try {
+        response = await doPost();
+      } catch (err: any) {
+        const isServerError = err?.response?.status === 500 || String(err?.message || '').includes('Row was updated or deleted');
+        if (isServerError) {
+          console.warn('[Cart] adicionarItem failed with server error, refreshing cart and retrying once', err);
+          await loadCartFromServer();
+          try {
+            response = await doPost();
+          } catch (err2: any) {
+            throw err2;
+          }
+        } else {
+          throw err;
+        }
+      }
 
       const newItem = mapApiToCartItem(response);
-      
-      // Atualizar estado local
-      setItems(prevItems => {
-        const existingIndex = prevItems.findIndex(item => item.produtoId === produtoId);
-        
-        if (existingIndex >= 0) {
-          // Atualizar quantidade se já existir
-          const updatedItems = [...prevItems];
-          updatedItems[existingIndex] = {
-            ...updatedItems[existingIndex],
-            quantidade: updatedItems[existingIndex].quantidade + quantidade,
-            subtotal: updatedItems[existingIndex].preco * (updatedItems[existingIndex].quantidade + quantidade)
-          };
-          return updatedItems;
-        } else {
-          // Adicionar novo item
-          return [...prevItems, newItem];
-        }
-      });
 
-      // Atualizar cache
-      await AsyncStorage.setItem(CART_ITEMS_KEY, JSON.stringify(items));
+      // Atualizar estado local de forma determinística (usar estado atual, não a variável stale)
+      const updatedItems = (() => {
+        const existingIndex = items.findIndex(item => item.produtoId === produtoId);
+        if (existingIndex >= 0) {
+          const clone = [...items];
+          const newQuantidade = clone[existingIndex].quantidade + quantidade;
+          clone[existingIndex] = {
+            ...clone[existingIndex],
+            quantidade: newQuantidade,
+            subtotal: clone[existingIndex].preco * newQuantidade
+          };
+          return clone;
+        }
+        return [...items, newItem];
+      })();
+
+      setItems(updatedItems);
+      // Atualizar cache de forma síncrona com o novo estado
+      await AsyncStorage.setItem(CART_ITEMS_KEY, JSON.stringify(updatedItems));
       await AsyncStorage.setItem(CART_LAST_SYNC_KEY, new Date().toISOString());
 
       Alert.alert('Sucesso!', 'Produto adicionado ao carrinho');
     } catch (error: any) {
       console.error('Erro ao adicionar ao carrinho:', error);
-      
       let errorMessage = 'Erro ao adicionar ao carrinho';
-      if (error.message?.includes('401') || error.message?.includes('Não autorizado')) {
+      if (error?.response?.status === 401 || String(error.message || '').includes('Não autorizado')) {
         errorMessage = 'Faça login para adicionar itens ao carrinho';
-      } else if (error.message?.includes('404')) {
+      } else if (error?.response?.status === 404 || String(error.message || '').includes('404')) {
         errorMessage = 'Produto não encontrado';
-      } else if (error.message?.includes('500')) {
-        errorMessage = 'Erro no servidor. Tente novamente.';
+      } else if (error?.response?.status === 500 || String(error.message || '').includes('500')) {
+        errorMessage = 'Erro no servidor. Atualizei o carrinho local — tente novamente.';
       }
 
       setError(errorMessage);
@@ -158,15 +171,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const removeFromCart = async (produtoId: number): Promise<void> => {
     try {
       setLoading(true);
-      
       await apiService.delete(`/carrinho/remover/${produtoId}`);
-      
-      // Atualizar estado local
-      setItems(prevItems => prevItems.filter(item => item.produtoId !== produtoId));
-      
-      // Atualizar cache
-      await AsyncStorage.setItem(CART_ITEMS_KEY, JSON.stringify(items));
-      
+
+      // Atualizar estado local e cache com o novo array
+      const newItems = items.filter(item => item.produtoId !== produtoId);
+      setItems(newItems);
+      await AsyncStorage.setItem(CART_ITEMS_KEY, JSON.stringify(newItems));
+
       Alert.alert('Sucesso', 'Item removido do carrinho');
     } catch (error: any) {
       console.error('Erro ao remover do carrinho:', error);
@@ -186,18 +197,33 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Use local state to compute delta when possible to avoid unnecessary remove/add
+    const existing = items.find(i => i.produtoId === produtoId);
+    const atual = existing?.quantidade ?? 0;
+    if (atual === quantidade) return;
+
     try {
       setLoading(true);
-      
-      // Primeiro remover o item antigo
-      await removeFromCart(produtoId);
-      
-      // Adicionar com nova quantidade
-      await addToCart(produtoId, quantidade);
-      
-    } catch (error) {
-      console.error('Erro ao atualizar quantidade:', error);
-      throw error;
+
+      if (quantidade > atual) {
+        // Só aumentar: enviar delta de quantidade
+        const delta = quantidade - atual;
+        await addToCart(produtoId, delta);
+        return;
+      }
+
+      // Se diminuir: removemos e adicionamos (servidor não expõe endpoint de set)
+      try {
+        await removeFromCart(produtoId);
+        await addToCart(produtoId, quantidade);
+      } catch (err: any) {
+        // Se ocorrer erro de concorrência no servidor, re-sincronizamos e informamos o usuário
+        console.warn('[Cart] updateQuantity failed; refreshing cart', err);
+        await loadCartFromServer();
+        Alert.alert('Erro', 'Não foi possível atualizar a quantidade. Atualizei o carrinho local — tente novamente.');
+        throw err;
+      }
+
     } finally {
       setLoading(false);
     }

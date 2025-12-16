@@ -1,7 +1,7 @@
 // src/services/carrinhoService.ts
 
-import { apiService } from './api';
 import { CartItem } from '../@types/carrinho';
+import { apiService } from './api';
 
 export const CarrinhoService = {
   // ADICIONAR ITEM
@@ -115,6 +115,22 @@ export const CarrinhoService = {
     } catch {
       const itens = await this.listarCarrinho();
       return itens.length;
+    }
+  },
+
+  // VALIDAR PARA CHECKOUT (validação local apenas)
+  async validarParaCheckout(): Promise<{ valido: boolean; itensIndisponiveis: any[]; mensagem?: string } > {
+    try {
+      const items = await this.listarCarrinho();
+      const itensIndisponiveis = items.filter(i => !i.disponivel);
+
+      return {
+        valido: itensIndisponiveis.length === 0 && items.length > 0,
+        itensIndisponiveis,
+        mensagem: itensIndisponiveis.length > 0 ? `${itensIndisponiveis.length} item(s) podem não estar disponíveis` : items.length === 0 ? 'Carrinho vazio' : undefined
+      };
+    } catch (e) {
+      return { valido: false, itensIndisponiveis: [], mensagem: 'Erro ao validar carrinho' };
     }
   }
 };

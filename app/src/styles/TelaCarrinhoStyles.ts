@@ -269,10 +269,10 @@ productHeader: {
 },
 
 indisponivelBadge: {
-    backgroundColor: theme.colors.warningLight,
+    backgroundColor: theme.colors.warning,
     paddingHorizontal: theme.spacing.xs,
     paddingVertical: 2,
-    borderRadius: theme.borderRadius.xs,
+    borderRadius: theme.borderRadius.sm,
     marginLeft: theme.spacing.sm,
 },
 
@@ -308,7 +308,7 @@ textDisabled: {
 offlineWarning: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.colors.warningLight,
+    backgroundColor: theme.colors.warning,
     padding: theme.spacing.sm,
     borderRadius: theme.borderRadius.md,
     marginVertical: theme.spacing.sm,
@@ -336,5 +336,18 @@ clearCartText: {
     fontFamily: theme.fonts.body,
     color: theme.colors.error,
     fontWeight: theme.typography.weights.medium,
+},
+
+loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.white,
+},
+
+loadingText: {
+    marginTop: theme.spacing.md,
+    fontSize: theme.typography.sizes.md,
+    color: theme.colors.gray600,
 },
 });
