@@ -1,5 +1,5 @@
-// app/(tabs)/carrinho.tsx
-import React, { useState, useEffect } from 'react';
+// app/(tabs)/carrinho.tsx - VERSÃO FINAL COMPLETA E CORRIGIDA
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -7,93 +7,84 @@ import {
     TouchableOpacity,
     Image,
     SafeAreaView,
-    StyleSheet,
     ScrollView,
     Alert,
-    Platform,
+    RefreshControl,
+    ActivityIndicator,
+    AppState,
+    AppStateStatus,
 } from 'react-native';
 import { theme } from '../src/theme/theme';
 import { Icon, CheckBox } from '@rneui/themed';
 import { useNavigation, useRouter } from 'expo-router';
 import { formatarPreco } from '../src/utils/formatters';
-
-// Tipos
-interface ItemCarrinho {
-    id: string;
-    imagem: string;
-    nome: string;
-    preco: number;
-    quantidade: number;
-    disponivel: boolean;
-    selecionado: boolean;
-}
-
-interface ResumoPedido {
-    subtotal: number;
-    frete: number;
-    total: number;
-    quantidadeSelecionada: number;
-}
+import { styles } from '../src/styles/TelaCarrinhoStyles';
+import { useCarrinho } from '../src/hooks/useCarrinho';
+import { useAuth } from '../src/context/AuthContext';
 
 const Carrinho = () => {
-    const navegacao = useNavigation();
+    const navigation = useNavigation();
     const router = useRouter();
+    const { isAuthenticated, isLoading: authLoading } = useAuth();
+    const {
+        cartItems,
+        selectAll,
+        isLoading,
+        isRefreshing,
+        error,
+        isOnline,
+        loadCartItems,
+        updateQuantity,
+        removeItem,
+        calculateSummary,
+        toggleItemSelection,
+        toggleSelectAll,
+        removeSelectedItems,
+        validarParaCheckout,
+        sincronizarCarrinho,
+        refreshCart,
+        clearCart,
+        verificarConexao,
+    } = useCarrinho();
 
-    // Estado inicial com itens de exemplo
-    const [itensCarrinho, setItensCarrinho] = useState<ItemCarrinho[]>([
-        {
-            id: '1',
-            imagem: 'https://images.unsplash.com/photo-1525547719578-795b3c2edcee?w=400',
-            nome: 'Notebook Lenovo IdeaPad 3',
-            preco: 2300.00,
-            quantidade: 1,
-            disponivel: true,
-            selecionado: true,
-        },
-        {
-            id: '2',
-            imagem: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
-            nome: 'Fone Bluetooth JBL Tune 510BT',
-            preco: 90.00,
-            quantidade: 2,
-            disponivel: true,
-            selecionado: true,
-        },
-        {
-            id: '3',
-            imagem: 'https://images.unsplash.com/photo-1527814050087-3793815479db?w=400',
-            nome: 'Mouse Logitech MX Master 3',
-            preco: 299.90,
-            quantidade: 1,
-            disponivel: true,
-            selecionado: true,
-        },
-    ]);
-
-    const [selecionarTudo, setSelecionarTudo] = useState(true);
-    const [estaLogado] = useState(true); // Simulação de login
+    const appState = useRef(AppState.currentState);
+    const [appStateVisible, setAppStateVisible] = useState(appState.current);
+    const [selectedItemsCount, setSelectedItemsCount] = useState(0);
 
     // Configurar header
     useEffect(() => {
-        navegacao.setOptions({
+        navigation.setOptions({
             headerTitle: () => (
-                <View style={estilos.headerContainer}>
-                    <TouchableOpacity
-                        style={estilos.checkboxHeader}
-                        onPress={alternarSelecionarTudo}
-                        activeOpacity={0.7}
-                    >
-                        <CheckBox
-                            checked={selecionarTudo}
-                            onPress={alternarSelecionarTudo}
-                            checkedColor={theme.colors.primary[500]}
-                            uncheckedColor={theme.colors.gray300}
+                <View style={styles.headerContainer}>
+                    {cartItems.length > 0 && (
+                        <TouchableOpacity
+                            style={styles.checkboxHeader}
+                            onPress={toggleSelectAll}
+                            activeOpacity={0.7}
+                        >
+                            <CheckBox
+                                checked={selectAll}
+                                onPress={toggleSelectAll}
+                                checkedColor={theme.colors.primary[500]}
+                                uncheckedColor={theme.colors.gray300}
+                            />
+                        </TouchableOpacity>
+                    )}
+                    
+                    <Text style={styles.titleHeader}>
+                        Carrinho ({cartItems.length})
+                        {!isOnline && ' (Offline)'} {/* CORRIGIDO: isOnline === false -> !isOnline */}
+                    </Text>
+                    
+                    {!isOnline && ( /* CORRIGIDO: isOnline === false -> !isOnline */
+                        <Icon
+                            name="wifi-off"
+                            type="material-community"
+                            size={18}
+                            color={theme.colors.warning}
+                            style={styles.offlineIcon}
                         />
-
-                        <Text style={estilos.tituloHeader}>
-                            Carrinho ({itensCarrinho.length})
-                        </Text>
-                    </TouchableOpacity>
+                    )}
                 </View>
             ),
             headerTitleAlign: 'center',
@@ -102,78 +93,190 @@ const Carrinho = () => {
             },
             headerTintColor: theme.colors.black,
             headerShadowVisible: true,
+            headerRight: () => (
+                <View style={styles.headerRight}>
+                    {cartItems.length > 0 && (
+                        <TouchableOpacity
+                            onPress={handleSincronizar}
+                            style={styles.syncButton}
+                            disabled={isLoading || isOnline} /* CORRIGIDO: isOnline === true -> isOnline */
+                        >
+                            <Icon
+                                name="sync"
+                                type="material-community"
+                                size={22}
+                                color={(isLoading || isOnline) ? theme.colors.gray400 : theme.colors.primary[500]} /* CORRIGIDO */
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
+            ),
         });
-    }, [navegacao, selecionarTudo, itensCarrinho.length]);
+    }, [navigation, selectAll, cartItems.length, isOnline, isLoading]);
 
-    // Atualizar selecionar tudo quando todos os itens estiverem selecionados/desmarcados
+    // Monitorar mudanças no estado do app
     useEffect(() => {
-        const todosSelecionados = itensCarrinho.every(item => item.selecionado);
-        const nenhumSelecionado = itensCarrinho.every(item => !item.selecionado);
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
 
-        if (todosSelecionados && !selecionarTudo) {
-            setSelecionarTudo(true);
-        } else if (nenhumSelecionado && selecionarTudo) {
-            setSelecionarTudo(false);
-        }
-    }, [itensCarrinho, selecionarTudo]);
-
-    // Calcular resumo do pedido apenas dos itens selecionados
-    const calcularResumo = (): ResumoPedido => {
-        const itensSelecionados = itensCarrinho.filter(item => item.selecionado);
-
-        const subtotal = itensSelecionados.reduce(
-            (total, item) => total + (item.preco * item.quantidade),
-            0
-        );
-
-        // Frete fixo de R$ 20,00 para exemplo
-        const frete = subtotal > 0 ? 20.00 : 0;
-
-        return {
-            subtotal,
-            frete,
-            total: subtotal + frete,
-            quantidadeSelecionada: itensSelecionados.length,
+        return () => {
+            subscription.remove();
         };
+    }, []);
+
+    // Contar itens selecionados
+    useEffect(() => {
+        const count = cartItems.filter(item => item.selecionado).length;
+        setSelectedItemsCount(count);
+    }, [cartItems]);
+
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+        if (
+            appState.current.match(/inactive|background/) &&
+            nextAppState === 'active'
+        ) {
+            // App voltou ao foreground, verificar conexão
+            await verificarConexao();
+            // Recarregar carrinho
+            loadCartItems();
+        }
+
+        appState.current = nextAppState;
+        setAppStateVisible(appState.current);
     };
 
-    const resumo = calcularResumo();
+    // Redirecionar para login se não estiver autenticado
+    useEffect(() => {
+        if (!authLoading && !isAuthenticated && cartItems.length > 0) {
+            Alert.alert(
+                'Login necessário',
+                'Faça login para sincronizar seu carrinho',
+                [
+                    {
+                        text: 'Continuar offline',
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Fazer Login',
+                        onPress: () => router.push('/auth/Login/login'),
+                    },
+                ]
+            );
+        }
+    }, [isAuthenticated, authLoading, cartItems.length]);
 
-    // Alternar seleção de um item específico
-    const alternarSelecaoItem = (id: string) => {
-        setItensCarrinho(prevItens =>
-            prevItens.map(item =>
-                item.id === id ? { ...item, selecionado: !item.selecionado } : item
-            )
-        );
+    // Verificar conexão ao montar o componente
+    useEffect(() => {
+        const verificarConexaoInicial = async () => {
+            const conectado = await verificarConexao();
+            
+            if (!conectado && cartItems.length > 0) {
+                Alert.alert(
+                    'Modo Offline',
+                    'Você está offline. Alterações serão salvas localmente e sincronizadas quando a conexão for restaurada.',
+                    [{ text: 'Entendi' }]
+                );
+            }
+        };
+
+        verificarConexaoInicial();
+    }, []);
+
+    const summary = calculateSummary();
+
+    // Sincronizar carrinho
+    const handleSincronizar = async () => {
+        if (!isAuthenticated) {
+            Alert.alert(
+                'Login necessário',
+                'Faça login para sincronizar o carrinho',
+                [
+                    {
+                        text: 'Cancelar',
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Fazer Login',
+                        onPress: () => router.push('/auth/Login/login'),
+                    },
+                ]
+            );
+            return;
+        }
+
+        try {
+            await sincronizarCarrinho();
+        } catch (error) {
+            // Erro já tratado no hook
+        }
     };
 
-    // Alternar selecionar tudo
-    const alternarSelecionarTudo = () => {
-        const novoEstado = !selecionarTudo;
-        setSelecionarTudo(novoEstado);
-
-        setItensCarrinho(prevItens =>
-            prevItens.map(item => ({ ...item, selecionado: novoEstado }))
-        );
+    // Atualizar quantidade
+    const handleUpdateQuantity = async (produtoId: number, newQuantity: number) => {
+        if (newQuantity < 1) return;
+        
+        try {
+            await updateQuantity(produtoId, newQuantity);
+        } catch (error) {
+            // Erro já tratado no hook
+        }
     };
 
-    // Atualizar quantidade de um item
-    const atualizarQuantidade = (id: string, novaQuantidade: number) => {
-        if (novaQuantidade < 1) return;
+   // Remover item - CORRIGIDA
+    const handleRemoveItem = (produtoId: number, itemName: string) => {
+        console.log('=== DEBUG: Iniciando remoção ===');
+        console.log('Produto ID:', produtoId);
+        console.log('Item Name:', itemName);
+        console.log('Cart Items antes:', cartItems.length);
+        console.log('Item existe?', cartItems.find(item => String(item.produtoId) === String(produtoId)));
+        
+        const item = cartItems.find(item => String(item.produtoId) === String(produtoId));
+        if (!item) {
+            console.error('Item não encontrado no carrinho!');
+            Alert.alert('Erro', 'Item não encontrado no carrinho');
+            return;
+        }
 
-        setItensCarrinho(prevItens =>
-            prevItens.map(item =>
-                item.id === id ? { ...item, quantidade: novaQuantidade } : item
-            )
-        );
-    };
-
-    // Remover item do carrinho - CORRIGIDO
-    const removerItem = (id: string) => {
         Alert.alert(
             'Remover item',
-            'Tem certeza que deseja remover este item do carrinho?',
+            `Tem certeza que deseja remover "${itemName}" do carrinho?`,
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                    text: 'Remover',
+                    style: 'destructive',
+                    onPress: async () => {
+                        console.log('Confirmado: removendo item...');
+                        try {
+                            const success = await removeItem(String(produtoId));
+                            if (success) {
+                                console.log('Item removido com sucesso!');
+                                console.log('Cart Items depois:', cartItems.length);
+                            } else {
+                                console.error('Falha ao remover item');
+                                Alert.alert('Erro', 'Não foi possível remover o item');
+                            }
+                        } catch (error) {
+                            console.error('Erro na remoção:', error);
+                            Alert.alert('Erro', 'Ocorreu um erro ao remover o item');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+    // Remover itens selecionados - VERSÃO DEBUG
+    const handleRemoveSelectedItems = () => {
+        if (selectedItemsCount === 0) {
+            Alert.alert('Nenhum item selecionado', 'Selecione itens para remover.');
+            return;
+        }
+
+        console.log('=== DEBUG: Removendo selecionados ===');
+        console.log('Itens selecionados:', selectedItemsCount);
+
+        Alert.alert(
+            'Remover itens selecionados',
+            `Deseja remover ${selectedItemsCount} item(ns) do carrinho?`,
             [
                 {
                     text: 'Cancelar',
@@ -182,38 +285,42 @@ const Carrinho = () => {
                 {
                     text: 'Remover',
                     style: 'destructive',
-                    onPress: () => {
-                        const novosItens = itensCarrinho.filter(item => item.id !== id);
-                        setItensCarrinho(novosItens);
+                    onPress: async () => {
+                        console.log('Confirmado: removendo selecionados...');
+                        try {
+                            await removeSelectedItems();
+                            console.log('Itens selecionados removidos com sucesso!');
+                        } catch (error) {
+                            console.error('Erro ao remover selecionados:', error);
+                            Alert.alert('Erro', 'Não foi possível remover os itens selecionados');
+                        }
                     },
                 },
             ]
         );
     };
 
-    // Remover itens selecionados
-    const removerSelecionados = () => {
-        const itensSelecionados = itensCarrinho.filter(item => item.selecionado);
-
-        if (itensSelecionados.length === 0) {
-            Alert.alert('Nenhum item selecionado', 'Selecione itens para remover.');
-            return;
-        }
+    // Limpar carrinho
+    const handleClearCart = () => {
+        if (cartItems.length === 0) return;
 
         Alert.alert(
-            'Remover itens selecionados',
-            `Deseja remover ${itensSelecionados.length} item(ns) do carrinho?`,
+            'Limpar carrinho',
+            'Tem certeza que deseja remover todos os itens do carrinho?',
             [
                 {
                     text: 'Cancelar',
                     style: 'cancel',
                 },
                 {
-                    text: 'Remover',
+                    text: 'Limpar tudo',
                     style: 'destructive',
-                    onPress: () => {
-                        const novosItens = itensCarrinho.filter(item => !item.selecionado);
-                        setItensCarrinho(novosItens);
+                    onPress: async () => {
+                        try {
+                            await clearCart();
+                        } catch (error) {
+                            Alert.alert('Erro', 'Não foi possível limpar o carrinho');
+                        }
                     },
                 },
             ]
@@ -221,119 +328,232 @@ const Carrinho = () => {
     };
 
     // Navegar para produtos
-    const navegarParaProdutos = () => {
+    const navigateToProducts = () => {
         router.push('/(tabs)/explorar');
     };
 
-    // Navegar para login
-    const navegarParaLogin = () => {
-        router.push('/auth/Login/login');
-    };
-
-    // Finalizar compra apenas dos itens selecionados
-    const finalizarCompra = () => {
-        if (!estaLogado) {
-            navegarParaLogin();
+    // Finalizar compra
+    const handleCheckout = async () => {
+        if (!isAuthenticated) {
+            Alert.alert(
+                'Login necessário',
+                'Faça login para finalizar a compra',
+                [
+                    {
+                        text: 'Cancelar',
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Fazer Login',
+                        onPress: () => router.push('/auth/Login/login'),
+                    },
+                ]
+            );
             return;
         }
 
-        const itensSelecionados = itensCarrinho.filter(item => item.selecionado);
-
-        if (itensSelecionados.length === 0) {
+        if (selectedItemsCount === 0) {
             Alert.alert('Nenhum item selecionado', 'Selecione itens para comprar.');
             return;
         }
 
-        Alert.alert(
-            'Finalizar Compra',
-            `Total do pedido (${itensSelecionados.length} itens): ${formatarPreco(resumo.total)}`,
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel',
-                },
-                {
-                    text: 'Confirmar',
-                    onPress: () => {
-                        // Aqui você implementaria a lógica de checkout
-                        Alert.alert('Sucesso', 'Pedido realizado com sucesso!');
+        try {
+            // Verificar conexão antes do checkout
+            const conectado = await verificarConexao();
+            
+            if (!conectado) {
+                Alert.alert(
+                    'Modo Offline',
+                    'Você está offline. É necessário estar online para finalizar a compra.',
+                    [
+                        { text: 'Cancelar', style: 'cancel' },
+                        { text: 'Tentar conectar', onPress: () => verificarConexao() }
+                    ]
+                );
+                return;
+            }
 
-                        // Remover apenas os itens selecionados do carrinho
-                        const novosItens = itensCarrinho.filter(item => !item.selecionado);
-                        setItensCarrinho(novosItens);
-                        setSelecionarTudo(false);
+            await prosseguirCheckout();
+        } catch (error) {
+            Alert.alert('Erro', 'Não foi possível validar o carrinho. Tente novamente.');
+        }
+    };
+
+    const prosseguirCheckout = async () => {
+        try {
+            // Validar carrinho antes do checkout
+            const validacao = await validarParaCheckout();
+            
+            if (!validacao.valido) {
+                Alert.alert(
+                    'Itens indisponíveis',
+                    validacao.mensagem || 'Alguns itens do seu carrinho não estão mais disponíveis.',
+                    [
+                        { text: 'OK' },
+                        {
+                            text: 'Remover indisponíveis',
+                            onPress: async () => {
+                                // Criar uma cópia dos itens disponíveis
+                                const itensDisponiveis = cartItems.filter(item => 
+                                    !validacao.itensIndisponiveis.some(
+                                        indisponivel => indisponivel.produtoId === item.produtoId
+                                    )
+                                );
+                                
+                                // Se todos os itens forem removidos, mostrar mensagem
+                                if (itensDisponiveis.length === 0) {
+                                    Alert.alert('Carrinho vazio', 'Todos os itens foram removidos pois estão indisponíveis.');
+                                    return;
+                                }
+                                
+                                Alert.alert(
+                                    'Itens removidos',
+                                    `Os itens indisponíveis foram removidos do carrinho.`,
+                                    [{ text: 'OK' }]
+                                );
+                            }
+                        }
+                    ]
+                );
+                return;
+            }
+
+            // Prosseguir para checkout
+            Alert.alert(
+                'Finalizar Compra',
+                `Total do pedido (${selectedItemsCount} itens): ${formatarPreco(summary.total)}\n\nDeseja prosseguir com a compra?`,
+                [
+                    {
+                        text: 'Cancelar',
+                        style: 'cancel',
                     },
-                },
-            ]
-        );
+                    {
+                        text: 'Confirmar',
+                        onPress: () => {
+                            // Navegar para tela de checkout
+                            const selectedItems = cartItems.filter(item => item.selecionado);
+                            router.push({
+                                pathname: '/checkout',
+                                params: {
+                                    items: JSON.stringify(selectedItems),
+                                    total: summary.total.toString(),
+                                    isOnline: isOnline.toString(), /* CORRIGIDO: isOnline?.toString() -> isOnline.toString() */
+                                }
+                            });
+                        },
+                    },
+                ]
+            );
+        } catch (error) {
+            console.error('Erro no checkout:', error);
+            Alert.alert('Erro', 'Não foi possível processar o checkout. Tente novamente.');
+        }
     };
 
     // Renderizar item do carrinho
-    const renderizarItem = ({ item }: { item: ItemCarrinho }) => (
-        <View style={estilos.itemCarrinho}>
+    const renderItem = ({ item }: { item: any }) => (
+        <View style={[
+            styles.cartItem,
+            !item.disponivel && styles.itemIndisponivel
+        ]}>
             <CheckBox
                 checked={item.selecionado}
-                onPress={() => alternarSelecaoItem(item.id)}
+                onPress={() => toggleItemSelection(item.produtoId)}
                 checkedColor={theme.colors.primary[500]}
                 uncheckedColor={theme.colors.gray300}
-                containerStyle={estilos.checkboxItem}
+                containerStyle={styles.checkboxItem}
+                disabled={!item.disponivel || isLoading}
             />
 
             <Image
-                source={{ uri: item.imagem }}
-                style={estilos.imagemProduto}
+                source={{ uri: item.imagem || 'https://via.placeholder.com/150' }}
+                style={styles.productImage}
+                defaultSource={{ uri: 'https://via.placeholder.com/150' }}
             />
 
-            <View style={estilos.infoProduto}>
-                <Text style={estilos.nomeProduto} numberOfLines={2}>
-                    {item.nome}
-                </Text>
-                <Text style={estilos.precoProduto}>
-                    {formatarPreco(item.preco)}
-                </Text>
+            <View style={styles.productInfo}>
+                <View style={styles.productHeader}>
+                    <Text style={[
+                        styles.productName,
+                        !item.disponivel && styles.textDisabled
+                    ]} numberOfLines={2}>
+                        {item.nome}
+                    </Text>
+                    {!item.disponivel && (
+                        <View style={styles.indisponivelBadge}>
+                            <Text style={styles.indisponivelText}>Indisponível</Text>
+                        </View>
+                    )}
+                </View>
+                
+                <View style={styles.priceRow}>
+                    <Text style={[
+                        styles.productPrice,
+                        !item.disponivel && styles.textDisabled
+                    ]}>
+                        {formatarPreco(item.preco)}
+                    </Text>
+                    <Text style={[
+                        styles.subtotalText,
+                        !item.disponivel && styles.textDisabled
+                    ]}>
+                        Subtotal: {formatarPreco(item.subtotal || item.preco * item.quantidade)}
+                    </Text>
+                </View>
 
-                <View style={estilos.controlesItem}>
-                    <View style={estilos.controleQuantidade}>
+                <View style={styles.itemControls}>
+                    <View style={styles.quantityControl}>
                         <TouchableOpacity
-                            style={estilos.botaoQuantidade}
-                            onPress={() => atualizarQuantidade(item.id, item.quantidade - 1)}
-                            disabled={item.quantidade <= 1}
+                            style={[
+                                styles.quantityButton,
+                                (!item.disponivel || item.quantidade <= 1 || isLoading) && styles.buttonDisabled
+                            ]}
+                            onPress={() => handleUpdateQuantity(item.produtoId, item.quantidade - 1)}
+                            disabled={!item.disponivel || item.quantidade <= 1 || isLoading}
                         >
                             <Icon
                                 name="minus"
                                 type="material-community"
                                 size={14}
-                                color={item.quantidade <= 1 ? theme.colors.gray300 : theme.colors.black}
+                                color={(!item.disponivel || item.quantidade <= 1 || isLoading) ? theme.colors.gray300 : theme.colors.black}
                             />
                         </TouchableOpacity>
 
-                        <Text style={estilos.textoQuantidade}>
+                        <Text style={[
+                            styles.quantityText,
+                            !item.disponivel && styles.textDisabled
+                        ]}>
                             {item.quantidade}
                         </Text>
 
                         <TouchableOpacity
-                            style={estilos.botaoQuantidade}
-                            onPress={() => atualizarQuantidade(item.id, item.quantidade + 1)}
+                            style={[
+                                styles.quantityButton,
+                                (!item.disponivel || isLoading) && styles.buttonDisabled
+                            ]}
+                            onPress={() => handleUpdateQuantity(item.produtoId, item.quantidade + 1)}
+                            disabled={!item.disponivel || isLoading}
                         >
                             <Icon
                                 name="plus"
                                 type="material-community"
                                 size={14}
-                                color={theme.colors.black}
+                                color={(!item.disponivel || isLoading) ? theme.colors.gray300 : theme.colors.black}
                             />
                         </TouchableOpacity>
                     </View>
 
                     <TouchableOpacity
-                        style={estilos.botaoRemover}
-                        onPress={() => removerItem(item.id)}
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveItem(item.produtoId, item.nome)}
+                        disabled={isLoading}
                         activeOpacity={theme.opacity.active}
                     >
                         <Icon
                             name="trash-can-outline"
                             type="material-community"
                             size={20}
-                            color={theme.colors.error}
+                            color={isLoading ? theme.colors.gray300 : theme.colors.error}
                         />
                     </TouchableOpacity>
                 </View>
@@ -342,54 +562,82 @@ const Carrinho = () => {
     );
 
     // Renderizar resumo do pedido
-    const renderizarResumo = () => (
-        <View style={estilos.resumoContainer}>
-            <View style={estilos.linhaResumo}>
-                <Text style={estilos.textoResumoLabel}>
-                    Subtotal ({resumo.quantidadeSelecionada} itens):
+    const renderSummary = () => (
+        <View style={styles.summaryContainer}>
+            <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>
+                    Subtotal ({summary.quantidadeSelecionada} itens):
                 </Text>
-                <Text style={estilos.textoResumoValor}>
-                    {formatarPreco(resumo.subtotal)}
-                </Text>
-            </View>
-
-            <View style={estilos.linhaResumo}>
-                <Text style={estilos.textoResumoLabel}>Frete:</Text>
-                <Text style={estilos.textoResumoValor}>
-                    {formatarPreco(resumo.frete)}
+                <Text style={styles.summaryValue}>
+                    {formatarPreco(summary.subtotal)}
                 </Text>
             </View>
 
-            <View style={estilos.linhaResumoTotal}>
-                <Text style={estilos.textoTotalLabel}>Total:</Text>
-                <Text style={estilos.textoTotalValor}>
-                    {formatarPreco(resumo.total)}
+            <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Frete:</Text>
+                <Text style={styles.summaryValue}>
+                    {formatarPreco(summary.frete)}
+                </Text>
+            </View>
+
+            {!isOnline && ( /* CORRIGIDO: isOnline === false -> !isOnline */
+                <View style={styles.offlineWarning}>
+                    <Icon
+                        name="wifi-off"
+                        type="material-community"
+                        size={16}
+                        color={theme.colors.warning}
+                    />
+                    <Text style={styles.offlineWarningText}>
+                        Modo offline - alguns valores podem não estar atualizados
+                    </Text>
+                </View>
+            )}
+
+            <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total:</Text>
+                <Text style={styles.totalValue}>
+                    {formatarPreco(summary.total)}
                 </Text>
             </View>
 
             <TouchableOpacity
                 style={[
-                    estilos.botaoFinalizar,
-                    resumo.quantidadeSelecionada === 0 && estilos.botaoFinalizarDesabilitado
+                    styles.checkoutButton,
+                    (selectedItemsCount === 0 || isLoading) && styles.checkoutButtonDisabled
                 ]}
-                onPress={finalizarCompra}
+                onPress={handleCheckout}
                 activeOpacity={theme.opacity.active}
-                disabled={resumo.quantidadeSelecionada === 0}
+                disabled={selectedItemsCount === 0 || isLoading}
             >
-                <Text style={estilos.textoBotaoFinalizar}>
-                    {resumo.quantidadeSelecionada > 0
-                        ? `FINALIZAR COMPRA (${resumo.quantidadeSelecionada})`
-                        : 'SELECIONE ITENS PARA COMPRAR'
-                    }
+                {isLoading ? (
+                    <ActivityIndicator color={theme.colors.white} size="small" />
+                ) : (
+                    <Text style={styles.checkoutButtonText}>
+                        {selectedItemsCount > 0
+                            ? `FINALIZAR COMPRA (${selectedItemsCount})`
+                            : 'SELECIONE ITENS PARA COMPRAR'
+                        }
+                    </Text>
+                )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+                style={styles.clearCartButton}
+                onPress={handleClearCart}
+                disabled={isLoading || cartItems.length === 0}
+            >
+                <Text style={styles.clearCartText}>
+                    Limpar carrinho
                 </Text>
             </TouchableOpacity>
         </View>
     );
 
     // Renderizar estado vazio
-    const renderizarEstadoVazio = () => (
-        <View style={estilos.containerVazio}>
-            <View style={estilos.iconeContainer}>
+    const renderEmptyState = () => (
+        <View style={styles.emptyContainer}>
+            <View style={styles.iconContainer}>
                 <Icon
                     name="shopping-outline"
                     type="material-community"
@@ -398,345 +646,118 @@ const Carrinho = () => {
                 />
             </View>
 
-            <Text style={estilos.textoVazioTitulo}>
-                Seu carrinho está vazio
+            <Text style={styles.emptyTitle}>
+                {error ? 'Erro ao carregar carrinho' : 'Seu carrinho está vazio'}
             </Text>
 
-            <Text style={estilos.textoVazioDescricao}>
-                Adicione produtos incríveis ao seu carrinho
+            <Text style={styles.emptyDescription}>
+                {error 
+                    ? 'Não foi possível carregar os itens do carrinho. Tente novamente.'
+                    : 'Adicione produtos incríveis ao seu carrinho'
+                }
             </Text>
 
             <TouchableOpacity
-                style={estilos.botaoExplorar}
-                onPress={navegarParaProdutos}
+                style={styles.exploreButton}
+                onPress={error ? refreshCart : navigateToProducts}
                 activeOpacity={theme.opacity.active}
+                disabled={isLoading}
             >
-                <Text style={estilos.textoBotaoExplorar}>
-                    Explorar produtos
+                <Text style={styles.exploreButtonText}>
+                    {error ? 'Tentar novamente' : 'Explorar produtos'}
                 </Text>
             </TouchableOpacity>
         </View>
     );
 
-    // Verificar se está logado
-    useEffect(() => {
-        if (!estaLogado) {
-            Alert.alert(
-                'Login necessário',
-                'Faça login para acessar o carrinho',
-                [
-                    {
-                        text: 'Cancelar',
-                        style: 'cancel',
-                    },
-                    {
-                        text: 'Fazer Login',
-                        onPress: navegarParaLogin,
-                    },
-                ]
-            );
-        }
-    }, [estaLogado]);
+    // Renderizar loading
+    if ((isLoading || authLoading) && cartItems.length === 0) {
+        return (
+            <SafeAreaView style={[styles.container, styles.loadingContainer]}>
+                <ActivityIndicator size="large" color={theme.colors.primary[500]} />
+                <Text style={styles.loadingText}>Carregando carrinho...</Text>
+            </SafeAreaView>
+        );
+    }
 
     return (
-        <SafeAreaView style={estilos.container}>
-            {itensCarrinho.length === 0 ? (
+        <SafeAreaView style={styles.container}>
+            {cartItems.length === 0 ? (
                 <ScrollView
-                    contentContainerStyle={estilos.scrollVazio}
+                    contentContainerStyle={styles.emptyScroll}
                     showsVerticalScrollIndicator={false}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={refreshCart}
+                            colors={[theme.colors.primary[500]]}
+                        />
+                    }
                 >
-                    {renderizarEstadoVazio()}
+                    {renderEmptyState()}
                 </ScrollView>
             ) : (
                 <>
-                    <View style={estilos.barraAcoes}>
+                    <View style={styles.actionsBar}>
                         <TouchableOpacity
-                            style={estilos.botaoAcao}
-                            onPress={alternarSelecionarTudo}
+                            style={styles.actionButton}
+                            onPress={toggleSelectAll}
                             activeOpacity={0.7}
+                            disabled={isLoading}
                         >
                             <CheckBox
-                                checked={selecionarTudo}
-                                onPress={alternarSelecionarTudo}
+                                checked={selectAll}
+                                onPress={toggleSelectAll}
                                 checkedColor={theme.colors.primary[500]}
                                 uncheckedColor={theme.colors.gray300}
+                                disabled={isLoading}
                             />
-                            <Text style={estilos.textoSelecionarTudo}>
-                                {selecionarTudo ? 'Desmarcar' : 'Selecionar '}
+                            <Text style={styles.selectAllText}>
+                                {selectAll ? 'Desmarcar todos' : 'Selecionar todos'}
                             </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            style={estilos.botaoRemoverSelecionados}
-                            onPress={removerSelecionados}
+                            style={styles.removeSelectedButton}
+                            onPress={handleRemoveSelectedItems}
+                            disabled={isLoading || selectedItemsCount === 0}
                             activeOpacity={theme.opacity.active}
                         >
                             <Icon
                                 name="trash-can-outline"
                                 type="material-community"
                                 size={20}
-                                color={theme.colors.error}
+                                color={isLoading || selectedItemsCount === 0 ? theme.colors.gray300 : theme.colors.error}
                             />
-                            <Text style={estilos.textoRemoverSelecionados}>
-                                Remover
+                            <Text style={[
+                                styles.removeSelectedText,
+                                (isLoading || selectedItemsCount === 0) && styles.textDisabled
+                            ]}>
+                                Remover selecionados ({selectedItemsCount})
                             </Text>
                         </TouchableOpacity>
                     </View>
 
                     <FlatList
-                        data={itensCarrinho}
-                        renderItem={renderizarItem}
+                        data={cartItems}
+                        renderItem={renderItem}
                         keyExtractor={(item) => item.id}
-                        contentContainerStyle={estilos.listaConteudo}
+                        contentContainerStyle={styles.listContent}
                         showsVerticalScrollIndicator={false}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={isRefreshing}
+                                onRefresh={refreshCart}
+                                colors={[theme.colors.primary[500]]}
+                            />
+                        }
+                        ListEmptyComponent={renderEmptyState}
+                        ListFooterComponent={cartItems.length > 0 ? renderSummary : null}
                     />
-
-                    {renderizarResumo()}
                 </>
             )}
         </SafeAreaView>
     );
 };
-
-const estilos = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: theme.colors.white,
-    },
-    headerContainer: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    checkboxHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    tituloHeader: {
-        fontSize: theme.typography.sizes.lg,
-        fontFamily: theme.fonts.heading,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.black,
-        marginLeft: theme.spacing.sm,
-    },
-    barraAcoes: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.sm,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.gray200,
-        backgroundColor: theme.colors.white,
-    },
-    botaoAcao: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    textoSelecionarTudo: {
-        fontSize: theme.typography.sizes.sm,
-        fontFamily: theme.fonts.body,
-        color: theme.colors.gray700,
-        marginLeft: theme.spacing.xs,
-    },
-    botaoRemoverSelecionados: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: theme.spacing.xs,
-        paddingHorizontal: theme.spacing.sm,
-        backgroundColor: theme.colors.gray50,
-        borderRadius: theme.borderRadius.sm,
-    },
-    textoRemoverSelecionados: {
-        fontSize: theme.typography.sizes.sm,
-        fontFamily: theme.fonts.body,
-        color: theme.colors.error,
-        marginLeft: theme.spacing.xs,
-    },
-    checkboxItem: {
-        padding: 0,
-        margin: 0,
-        marginRight: theme.spacing.sm,
-        backgroundColor: 'transparent',
-        borderWidth: 0,
-    },
-    listaConteudo: {
-        paddingBottom: theme.spacing.xl,
-    },
-    itemCarrinho: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.lg,
-        borderBottomWidth: 1,
-        borderBottomColor: theme.colors.gray100,
-        backgroundColor: theme.colors.white,
-        minHeight: 100,
-    },
-    imagemProduto: {
-        width: 70,
-        height: 70,
-        borderRadius: theme.borderRadius.md,
-        backgroundColor: theme.colors.gray100,
-        marginRight: theme.spacing.md,
-    },
-    infoProduto: {
-        flex: 1,
-        justifyContent: 'center',
-    },
-    nomeProduto: {
-        fontSize: theme.typography.sizes.md,
-        fontFamily: theme.fonts.body,
-        fontWeight: theme.typography.weights.medium,
-        color: theme.colors.black,
-        marginBottom: 4,
-        lineHeight: 20,
-    },
-    precoProduto: {
-        fontSize: theme.typography.sizes.lg,
-        fontFamily: theme.fonts.body,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.primary[600],
-        marginBottom: theme.spacing.sm,
-    },
-    controlesItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    controleQuantidade: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: theme.colors.gray50,
-        borderRadius: theme.borderRadius.md,
-        borderWidth: 1,
-        borderColor: theme.colors.gray200,
-    },
-    botaoQuantidade: {
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.xs,
-        minWidth: 36,
-        alignItems: 'center',
-    },
-    textoQuantidade: {
-        fontSize: theme.typography.sizes.md,
-        fontFamily: theme.fonts.body,
-        fontWeight: theme.typography.weights.medium,
-        color: theme.colors.black,
-        minWidth: 20,
-        textAlign: 'center',
-    },
-    botaoRemover: {
-        padding: theme.spacing.sm,
-    },
-    resumoContainer: {
-        padding: theme.spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.gray200,
-        backgroundColor: theme.colors.white,
-        ...theme.shadows.md,
-    },
-    linhaResumo: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: theme.spacing.sm,
-    },
-    textoResumoLabel: {
-        fontSize: theme.typography.sizes.md,
-        fontFamily: theme.fonts.body,
-        color: theme.colors.gray600,
-    },
-    textoResumoValor: {
-        fontSize: theme.typography.sizes.md,
-        fontFamily: theme.fonts.body,
-        fontWeight: theme.typography.weights.medium,
-        color: theme.colors.black,
-    },
-    linhaResumoTotal: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: theme.spacing.md,
-        marginBottom: theme.spacing.lg,
-        paddingTop: theme.spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: theme.colors.gray300,
-    },
-    textoTotalLabel: {
-        fontSize: theme.typography.sizes.lg,
-        fontFamily: theme.fonts.heading,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.black,
-    },
-    textoTotalValor: {
-        fontSize: theme.typography.sizes.xl,
-        fontFamily: theme.fonts.heading,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.primary[600],
-    },
-    botaoFinalizar: {
-        backgroundColor: theme.colors.primary[500],
-        paddingVertical: theme.spacing.lg,
-        borderRadius: theme.borderRadius.lg,
-        alignItems: 'center',
-        ...theme.shadows.md,
-    },
-    botaoFinalizarDesabilitado: {
-        backgroundColor: theme.colors.gray300,
-        opacity: 0.7,
-    },
-    textoBotaoFinalizar: {
-        fontSize: theme.typography.sizes.md,
-        fontFamily: theme.fonts.body,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.white,
-        letterSpacing: 0.5,
-    },
-    containerVazio: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: theme.spacing.xl,
-        paddingTop: theme.spacing['3xl'],
-    },
-    scrollVazio: {
-        flexGrow: 1,
-        justifyContent: 'center',
-    },
-    iconeContainer: {
-        marginBottom: theme.spacing.lg,
-    },
-    textoVazioTitulo: {
-        fontSize: theme.typography.sizes.xl,
-        fontFamily: theme.fonts.heading,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.black,
-        textAlign: 'center',
-        marginBottom: theme.spacing.sm,
-    },
-    textoVazioDescricao: {
-        fontSize: theme.typography.sizes.md,
-        fontFamily: theme.fonts.body,
-        color: theme.colors.gray600,
-        textAlign: 'center',
-        marginBottom: theme.spacing.xl,
-        lineHeight: 22,
-    },
-    botaoExplorar: {
-        backgroundColor: theme.colors.primary[500],
-        paddingHorizontal: theme.spacing.xl,
-        paddingVertical: theme.spacing.md,
-        borderRadius: theme.borderRadius.lg,
-        ...theme.shadows.md,
-    },
-    textoBotaoExplorar: {
-        fontSize: theme.typography.sizes.md,
-        fontFamily: theme.fonts.body,
-        fontWeight: theme.typography.weights.bold,
-        color: theme.colors.white,
-    },
-});
 
 export default Carrinho;

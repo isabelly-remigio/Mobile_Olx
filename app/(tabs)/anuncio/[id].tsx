@@ -1,3 +1,4 @@
+// app/(tabs)/anuncio/[id].tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -15,10 +16,11 @@ import { CarrosselAnuncio } from '@/app/src/components/ui/CarrosselAnuncio';
 import { InfoAnunciante } from '@/app/src/components/ui/InfoAnunciante';
 import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 import { LocalizacaoAnuncio } from '@/app/src/components/ui/LocalizacaoAnuncio';
-import { useCart } from '@/app/src/context/CartContext';
+import { useCarrinho } from '@/app/src/hooks/useCarrinho';
 import { Anuncio } from '@/app/src/@types/anuncio';
 import { anuncioService } from '@/app/src/services/anuncioService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
+import Toast from 'react-native-toast-message';
 
 // Dados de fallback caso a API falhe
 const dadosFallback: Anuncio = {
@@ -59,7 +61,11 @@ export default function DetalhesAnuncio() {
   const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const { addToCart } = useCart();
+  const [mostrarFeedbackCarrinho, setMostrarFeedbackCarrinho] = useState(false);
+  const [produtoAdicionado, setProdutoAdicionado] = useState<string | null>(null);
+  
+  // USE useCarrinho diretamente em vez de useCart
+  const { addToCart, isLoading: carrinhoLoading } = useCarrinho();
 
   useEffect(() => {
     if (id) {
@@ -77,6 +83,12 @@ export default function DetalhesAnuncio() {
       
       console.log(`📱 Carregando anúncio ID: ${id}`);
       const dados = await anuncioService.buscarPorId(id);
+      
+      // Adicione produtoId ao anúncio se não existir
+      if (dados && !dados.produtoId) {
+        dados.produtoId = parseInt(dados.id);
+      }
+      
       setAnuncio(dados);
       
     } catch (error: any) {
@@ -84,12 +96,15 @@ export default function DetalhesAnuncio() {
       setErro(error.message || 'Erro ao carregar detalhes do anúncio');
       
       // Usa dados de fallback
-      setAnuncio({
+      const fallbackData = {
         ...dadosFallback,
         id: id || '0',
         nome: `Produto #${id}`,
-        descricao: `Não foi possível carregar os detalhes deste produto. (${error.message})`
-      });
+        descricao: `Não foi possível carregar os detalhes deste produto. (${error.message})`,
+        produtoId: parseInt(id || '0')
+      };
+      
+      setAnuncio(fallbackData);
       
     } finally {
       setCarregando(false);
@@ -114,25 +129,140 @@ export default function DetalhesAnuncio() {
     // router.push(`/perfil/${anuncio.anunciante.id}`);
   };
 
-  const handleAdicionarCarrinho = () => {
-    if (!anuncio) return;
+  const handleAdicionarCarrinho = async () => {
+    if (!anuncio) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Anúncio não carregado',
+      });
+      return;
+    }
+    
+    console.log('🛒 Tentando adicionar ao carrinho...');
+    
+    const produtoId = anuncio.produtoId || parseInt(anuncio.id);
+    
+    if (isNaN(produtoId)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'ID do produto inválido',
+      });
+      return;
+    }
     
     try {
-      addToCart(anuncio);
-      Alert.alert('Sucesso', `${anuncio.nome} adicionado ao carrinho!`);
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível adicionar ao carrinho');
+      const resultado = await addToCart(produtoId, 1);
+      
+      if (resultado) {
+        // Feedback visual usando Toast
+        Toast.show({
+          type: 'success',
+          text1: 'Adicionado ao carrinho!',
+          text2: anuncio.nome,
+          position: 'bottom',
+          bottomOffset: 100,
+          visibilityTime: 2000,
+        });
+        
+        // Feedback visual personalizado
+        setProdutoAdicionado(anuncio.nome);
+        setMostrarFeedbackCarrinho(true);
+        
+        // Ocultar feedback após 3 segundos
+        setTimeout(() => {
+          setMostrarFeedbackCarrinho(false);
+        }, 3000);
+        
+        // Mostrar alerta de confirmação após 1 segundo
+        setTimeout(() => {
+          Alert.alert(
+            'Sucesso!',
+            `${anuncio.nome} adicionado ao carrinho`,
+            [
+              {
+                text: 'Continuar comprando',
+                style: 'cancel',
+              },
+              {
+                text: 'Ver carrinho',
+                onPress: () => router.push('/(tabs)/carrinho'),
+              },
+            ]
+          );
+        }, 1000);
+        
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: 'Não foi possível adicionar ao carrinho',
+        });
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao adicionar ao carrinho:', error);
+      
+      let mensagemErro = 'Erro ao adicionar ao carrinho';
+      if (error.message?.includes('401') || error.message?.includes('Não autorizado')) {
+        mensagemErro = 'Faça login para adicionar itens ao carrinho';
+      } else if (error.message?.includes('Network')) {
+        mensagemErro = 'Erro de conexão. Verifique sua internet.';
+      }
+      
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: mensagemErro,
+      });
     }
   };
 
-  const handleComprarAgora = () => {
+  const handleComprarAgora = async () => {
     if (!anuncio) return;
     
     try {
-      addToCart(anuncio);
-      Alert.alert('Compra', `Iniciando compra de ${anuncio.nome}`);
-      // router.push('/checkout');
-    } catch (error) {
+      // Primeiro adiciona ao carrinho
+      const produtoId = anuncio.produtoId || parseInt(anuncio.id);
+      
+      if (isNaN(produtoId)) {
+        throw new Error('ID do produto inválido');
+      }
+      
+      const resultado = await addToCart(produtoId, 1);
+      
+      if (resultado) {
+        // Feedback visual
+        setProdutoAdicionado(anuncio.nome);
+        setMostrarFeedbackCarrinho(true);
+        
+        // Ocultar feedback após 3 segundos
+        setTimeout(() => {
+          setMostrarFeedbackCarrinho(false);
+        }, 3000);
+        
+        // Depois vai para o checkout
+        setTimeout(() => {
+          Alert.alert(
+            'Compra Rápida',
+            `${anuncio.nome} adicionado ao carrinho! Deseja ir para o checkout?`,
+            [
+              {
+                text: 'Continuar comprando',
+                style: 'cancel',
+              },
+              // {
+              //   text: 'Ir para checkout',
+              //   onPress: () => router.push('/checkout'),
+              // },
+            ]
+          );
+        }, 1000);
+      } else {
+        Alert.alert('Erro', 'Não foi possível adicionar ao carrinho');
+      }
+    } catch (error: any) {
+      console.error('Erro ao comprar agora:', error);
       Alert.alert('Erro', 'Não foi possível realizar a compra');
     }
   };
@@ -144,7 +274,7 @@ export default function DetalhesAnuncio() {
     }
     
     const numero = anuncio.anunciante.telefone;
-    const mensagem = encodeURIComponent(`Olá! Tenho interesse no anúncio: ${anuncio.nome}`);
+    const mensagem = encodeURIComponent(`Olá! Tenho interesse no anúncio: ${anuncio.nome}\nPreço: ${formatarPreco(anuncio.preco)}`);
     const url = `https://wa.me/${numero}?text=${mensagem}`;
 
     Linking.openURL(url).catch(err => {
@@ -410,7 +540,35 @@ export default function DetalhesAnuncio() {
           onWhatsApp={handleWhatsApp}
           onComprarAgora={handleComprarAgora}
           onAdicionarCarrinho={handleAdicionarCarrinho}
+          produtoId={anuncio.produtoId || parseInt(anuncio.id)}
+          onAdicionarCarrinhoSuccess={() => {
+            console.log('Produto adicionado com sucesso!');
+          }}
+          onAdicionarCarrinhoError={(error) => {
+            console.error('Erro ao adicionar ao carrinho:', error);
+            Alert.alert('Erro', error);
+          }}
         />
+
+        {/* Feedback Visual de Carrinho */}
+        {mostrarFeedbackCarrinho && (
+          <View style={styles.feedbackContainer}>
+            <View style={styles.feedbackContent}>
+              <Icon 
+                name="check-circle" 
+                type="material" 
+                color="#10B981"
+                size={24}
+              />
+              <Text style={styles.feedbackText}>
+                {produtoAdicionado} adicionado ao carrinho!
+              </Text>
+            </View>
+          </View>
+        )}
+        
+        {/* Toast Component */}
+        <Toast />
       </SafeAreaView>
     </View>
   );

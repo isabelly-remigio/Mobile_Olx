@@ -35,6 +35,7 @@ export interface Anuncio {
   categoria?: string;
   dataPublicacao?: string;
   status?: string;
+  produtoId?: number; // Adicione esta linha para compatibilidade com carrinho
 }
 
 // Interface para a resposta do backend
@@ -70,9 +71,14 @@ export interface CarrosselAnuncioProps {
   imagens: string[];
 }
 
-
+// ATUALIZE APENAS ESTA INTERFACE:
 export interface AcoesAnuncioProps {
-  onWhatsApp: () => void;
-  onComprarAgora: () => void;
-  onAdicionarCarrinho: () => void;
+  onWhatsApp?: () => void;
+  onComprarAgora?: () => void;
+  onAdicionarCarrinho?: () => void;
+  // Adicione estas propriedades opcionais para a integração com carrinho:
+  produtoId?: number;
+  quantidade?: number;
+  onAdicionarCarrinhoSuccess?: () => void;
+  onAdicionarCarrinhoError?: (error: string) => void;
 }
