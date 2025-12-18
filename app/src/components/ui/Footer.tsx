@@ -13,7 +13,6 @@ const Footer = ({ ativo, onNavigate }: FooterNavigationProps) => {
     { id: 'inicio', icone: 'home', texto: 'Início', rota: '/' },
     { id: 'explorar', icone: 'search', texto: 'Explorar', rota: '/(tabs)/explorar' },
     { id: 'favoritos', icone: 'favorite', texto: 'Favoritos', rota: '/(tabs)/favoritos' },
-    { id: 'carrinho', icone: 'shopping-cart', texto: 'Carrinho', rota: '/(tabs)/carrinho' },
     { id: 'menu', icone: 'menu', texto: 'Menu', rota: '/(tabs)/menu' }
   ];
   

@@ -193,4 +193,81 @@ export default StyleSheet.create({
     color: '#374151',
   },
 
+  // Adicione estes estilos ao seu arquivo de estilos
+fixedActions: {
+  flexDirection: 'row',
+  paddingHorizontal: 16,
+  paddingVertical: 12,
+  backgroundColor: '#FFF',
+  borderTopWidth: 1,
+  borderTopColor: '#E5E7EB',
+  gap: 12,
+},
+actionButton: {
+  flex: 1,
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingVertical: 14,
+  borderRadius: 8,
+  gap: 8,
+},
+whatsappButton: {
+  backgroundColor: '#25D366',
+},
+buyButton: {
+  backgroundColor: '#3B82F6',
+},
+actionButtonText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#FFF',
+},
+buyButtonText: {
+  // Estilo específico se necessário
+},
+
+// Estilos para os botões fixos
+fixedActions: {
+  flexDirection: 'row',
+  paddingHorizontal: 16,
+  paddingVertical: 12,
+  backgroundColor: '#FFF',
+  borderTopWidth: 1,
+  borderTopColor: '#E5E7EB',
+  alignItems: 'center',
+  gap: 12,
+},
+whatsappCircleButton: {
+  width: 56,
+  height: 56,
+  borderRadius: 28,
+  backgroundColor: '#25D366',
+  justifyContent: 'center',
+  alignItems: 'center',
+  elevation: 3,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 3,
+},
+buyNowButton: {
+  flex: 1,
+  height: 56,
+  backgroundColor: '#FF6B35', 
+  borderRadius: 12,
+  justifyContent: 'center',
+  alignItems: 'center',
+  elevation: 3,
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.1,
+  shadowRadius: 3,
+},
+buyNowText: {
+  fontSize: 18,
+  fontWeight: '600',
+  color: '#FFF',
+},
+
 });

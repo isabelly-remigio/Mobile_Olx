@@ -1,11 +1,9 @@
 // app/(tabs)/anuncio/[id].tsx
 import { Anuncio } from '@/app/src/@types/anuncio';
-import { AcoesAnuncio } from '@/app/src/components/ui/AcoesAnuncio';
 import { CarrosselAnuncio } from '@/app/src/components/ui/CarrosselAnuncio';
 import { InfoAnunciante } from '@/app/src/components/ui/InfoAnunciante';
 import { LocalizacaoAnuncio } from '@/app/src/components/ui/LocalizacaoAnuncio';
 import { useAuth } from '@/app/src/context/AuthContext';
-import { useCarrinho } from '@/app/src/hooks/useCarrinho';
 import { anuncioService } from '@/app/src/services/anuncioService';
 import pagamentoService from '@/app/src/services/pagamentoService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
@@ -64,11 +62,7 @@ export default function DetalhesAnuncio() {
   const [anuncio, setAnuncio] = useState<Anuncio | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [mostrarFeedbackCarrinho, setMostrarFeedbackCarrinho] = useState(false);
-  const [produtoAdicionado, setProdutoAdicionado] = useState<string | null>(null);
   
-  // USE useCarrinho diretamente em vez de useCart
-  const { addToCart, isLoading: carrinhoLoading } = useCarrinho();
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -131,95 +125,6 @@ export default function DetalhesAnuncio() {
     
     Alert.alert('Perfil', `Abrindo perfil de ${anuncio.anunciante.nome}`);
     // router.push(`/perfil/${anuncio.anunciante.id}`);
-  };
-
-  const handleAdicionarCarrinho = async () => {
-    if (!anuncio) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'Anúncio não carregado',
-      });
-      return;
-    }
-    
-    console.log('🛒 Tentando adicionar ao carrinho...');
-    
-    const produtoId = anuncio.produtoId || parseInt(anuncio.id);
-    
-    if (isNaN(produtoId)) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'ID do produto inválido',
-      });
-      return;
-    }
-    
-    try {
-      const resultado = await addToCart(produtoId, 1);
-      
-      if (resultado) {
-        // Feedback visual usando Toast
-        Toast.show({
-          type: 'success',
-          text1: 'Adicionado ao carrinho!',
-          text2: anuncio.nome,
-          position: 'bottom',
-          bottomOffset: 100,
-          visibilityTime: 2000,
-        });
-        
-        // Feedback visual personalizado
-        setProdutoAdicionado(anuncio.nome);
-        setMostrarFeedbackCarrinho(true);
-        
-        // Ocultar feedback após 3 segundos
-        setTimeout(() => {
-          setMostrarFeedbackCarrinho(false);
-        }, 3000);
-        
-        // Mostrar alerta de confirmação após 1 segundo
-        setTimeout(() => {
-          Alert.alert(
-            'Sucesso!',
-            `${anuncio.nome} adicionado ao carrinho`,
-            [
-              {
-                text: 'Continuar comprando',
-                style: 'cancel',
-              },
-              {
-                text: 'Ver carrinho',
-                onPress: () => router.push('/(tabs)/carrinho'),
-              },
-            ]
-          );
-        }, 1000);
-        
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: 'Não foi possível adicionar ao carrinho',
-        });
-      }
-    } catch (error: any) {
-      console.error('❌ Erro ao adicionar ao carrinho:', error);
-      
-      let mensagemErro = 'Erro ao adicionar ao carrinho';
-      if (error.message?.includes('401') || error.message?.includes('Não autorizado')) {
-        mensagemErro = 'Faça login para adicionar itens ao carrinho';
-      } else if (error.message?.includes('Network')) {
-        mensagemErro = 'Erro de conexão. Verifique sua internet.';
-      }
-      
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: mensagemErro,
-      });
-    }
   };
 
   const handleComprarAgora = async () => {
@@ -539,37 +444,27 @@ export default function DetalhesAnuncio() {
           </View>
         </ScrollView>
 
-        {/* Ações Fixas */}
-        <AcoesAnuncio
-          onWhatsApp={handleWhatsApp}
-          onComprarAgora={handleComprarAgora}
-          onAdicionarCarrinho={handleAdicionarCarrinho}
-          produtoId={anuncio.produtoId || parseInt(anuncio.id)}
-          onAdicionarCarrinhoSuccess={() => {
-            console.log('Produto adicionado com sucesso!');
-          }}
-          onAdicionarCarrinhoError={(error) => {
-            console.error('Erro ao adicionar ao carrinho:', error);
-            Alert.alert('Erro', error);
-          }}
-        />
-
-        {/* Feedback Visual de Carrinho */}
-        {mostrarFeedbackCarrinho && (
-          <View style={styles.feedbackContainer}>
-            <View style={styles.feedbackContent}>
-              <Icon 
-                name="check-circle" 
-                type="material" 
-                color="#10B981"
-                size={24}
-              />
-              <Text style={styles.feedbackText}>
-                {produtoAdicionado} adicionado ao carrinho!
-              </Text>
-            </View>
-          </View>
-        )}
+        {/* Ações Fixas - WhatsApp circular e Comprar retangular */}
+        <View style={styles.fixedActions}>
+          <TouchableOpacity 
+            style={styles.whatsappCircleButton}
+            onPress={handleWhatsApp}
+          >
+            <Icon 
+              name="whatsapp" 
+              type="material-community" 
+              color="#FFF"
+              size={28}
+            />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.buyNowButton}
+            onPress={handleComprarAgora}
+          >
+            <Text style={styles.buyNowText}>Comprar Agora</Text>
+          </TouchableOpacity>
+        </View>
         
         {/* Toast Component */}
         <Toast />
