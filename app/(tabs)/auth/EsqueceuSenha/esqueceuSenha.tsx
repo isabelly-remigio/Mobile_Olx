@@ -96,7 +96,7 @@ const TelaEsqueciSenha = () => {
             marginBottom: 32,
             lineHeight: 24
           }}>
-            Enviamos um token de 6 dígitos para:
+            Enviamos um email de recuperação para:
           </Text>
           
           {/* E-mail destacado */}
@@ -124,14 +124,14 @@ const TelaEsqueciSenha = () => {
             textAlign: 'center',
             marginBottom: 32
           }}>
-            Verifique sua caixa de entrada e use o token para continuar.
+            Verifique sua caixa de entrada para continuar.
           </Text>
           
           {/* Botão único */}
           <Button
-            title="Continuar"
+            title="Reenviar e-mail"
             buttonStyle={{
-              backgroundColor: '#3B82F6',
+              backgroundColor: '#F27405',
               borderRadius: 8,
               paddingVertical: 16,
               paddingHorizontal: 32
@@ -140,22 +140,10 @@ const TelaEsqueciSenha = () => {
               fontSize: 16,
               fontWeight: '600'
             }}
-            onPress={irParaRedefinirSenha}
+            onPress={enviarEmail}
             containerStyle={{ alignSelf: 'stretch' }}
           />
           
-          {/* Opção de reenviar */}
-          <TouchableOpacity 
-            style={{ marginTop: 24 }}
-            onPress={enviarEmail}
-          >
-            <Text style={{ 
-              color: '#3B82F6',
-              fontSize: 14
-            }}>
-              Reenviar e-mail
-            </Text>
-          </TouchableOpacity>
           
         </View>
       </SafeAreaView>
