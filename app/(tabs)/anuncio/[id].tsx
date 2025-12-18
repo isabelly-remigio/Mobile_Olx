@@ -4,6 +4,7 @@ import { CarrosselAnuncio } from '@/app/src/components/ui/CarrosselAnuncio';
 import { InfoAnunciante } from '@/app/src/components/ui/InfoAnunciante';
 import { LocalizacaoAnuncio } from '@/app/src/components/ui/LocalizacaoAnuncio';
 import { useAuth } from '@/app/src/context/AuthContext';
+import { useFavoritos } from '@/app/src/hooks/useFavoritos'; 
 import { anuncioService } from '@/app/src/services/anuncioService';
 import pagamentoService from '@/app/src/services/pagamentoService';
 import styles from '@/app/src/styles/anuncio/DetalhesAnuncioStyles';
@@ -64,6 +65,7 @@ export default function DetalhesAnuncio() {
   const [erro, setErro] = useState<string | null>(null);
   
   const { isAuthenticated } = useAuth();
+  const { toggleFavorito, isFavorito } = useFavoritos(); // ← USE O HOOK
 
   useEffect(() => {
     if (id) {
@@ -73,6 +75,14 @@ export default function DetalhesAnuncio() {
       setCarregando(false);
     }
   }, [id]);
+
+  // Verifica se o produto é favorito quando o anúncio carrega
+  useEffect(() => {
+    if (anuncio && anuncio.id) {
+      const produtoFavorito = isFavorito(anuncio.id);
+      setFavoritado(produtoFavorito);
+    }
+  }, [anuncio, isFavorito]);
 
   const carregarAnuncio = async () => {
     try {
@@ -111,6 +121,48 @@ export default function DetalhesAnuncio() {
 
   const formatarPreco = (valor: number) => {
     return `R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+  };
+
+  const handleToggleFavorito = async () => {
+    if (!anuncio) return;
+    
+    if (!isAuthenticated) {
+      Alert.alert(
+        'Login necessário',
+        'Faça login para adicionar aos favoritos.',
+        [
+          { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') },
+          { text: 'Cancelar', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+    
+    // Atualização otimista - igual às outras telas
+    const novoEstado = !favoritado;
+    setFavoritado(novoEstado);
+    
+    try {
+      const success = await toggleFavorito(anuncio.id);
+      
+      if (success) {
+        // Feedback visual
+        Toast.show({
+          type: 'success',
+          text1: novoEstado ? 'Adicionado aos favoritos!' : 'Removido dos favoritos!',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      } else {
+        // Reverte se falhar
+        setFavoritado(!novoEstado);
+        Alert.alert('Erro', 'Não foi possível atualizar os favoritos');
+      }
+    } catch (error) {
+      // Reverte em caso de erro
+      setFavoritado(!novoEstado);
+      console.error('Erro ao alternar favorito:', error);
+    }
   };
 
   const handleCompartilhar = () => {
@@ -314,7 +366,7 @@ export default function DetalhesAnuncio() {
           <View style={styles.headerRight}>
             <TouchableOpacity 
               style={styles.headerIconButton}
-              onPress={() => setFavoritado(!favoritado)}
+              onPress={handleToggleFavorito} // ← TROQUE PARA NOVA FUNÇÃO
             >
               <Icon 
                 name={favoritado ? 'favorite' : 'favorite-border'}
