@@ -16,6 +16,7 @@ import { useAuth } from '@/app/src/context/AuthContext';
 import { useFavoritos } from '@/app/src/hooks/useFavoritos';
 import { Produto } from '@/app/src/@types/home';
 import styles from '../src/styles/TelaFavoritosStyles';
+import Toast from 'react-native-toast-message';
 
 // Interface estendida para incluir status de vendido
 interface ProdutoComStatus extends Produto {
@@ -31,91 +32,32 @@ const TelaFavoritos: React.FC = () => {
     favoritos,
     loading,
     error,
-    removerFavoritoPorIdString,
     recarregarFavoritos,
     hasError,
-    isRemoving,
+    isFavorito,
+    toggleFavorito,
   } = useFavoritos();
+  
   const [refreshing, setRefreshing] = useState(false);
   const [produtosComStatus, setProdutosComStatus] = useState<ProdutoComStatus[]>([]);
 
   // Transformar favoritos em produtos com status
   useEffect(() => {
     if (favoritos.length > 0) {
-      const produtosTransformados = favoritos.map(produto => {
-        // Verificar log para ver estrutura real
-        console.log('Produto recebido:', {
-          id: produto.id,
-          nome: produto.nome,
-          imagem: produto.imagem,
-          // Verificar se tem propriedades extras
-          temVendido: 'vendido' in produto,
-          temDisponivel: 'disponivel' in produto,
-          temStatus: 'status' in produto,
-          todasChaves: Object.keys(produto)
-        });
-
-        return {
-          ...produto,
-          vendido: (produto as any).vendido || 
-                   (produto as any).status === 'VENDIDO' || 
-                   (produto as any).disponivel === false || 
-                   false,
-          disponivel: (produto as any).disponivel ?? true,
-          status: (produto as any).status || 'ativo'
-        };
-      });
+      const produtosTransformados = favoritos.map(produto => ({
+        ...produto,
+        vendido: (produto as any).vendido || 
+                 (produto as any).status === 'VENDIDO' || 
+                 (produto as any).disponivel === false || 
+                 false,
+        disponivel: (produto as any).disponivel ?? true,
+        status: (produto as any).status || 'ativo'
+      }));
       setProdutosComStatus(produtosTransformados);
     } else {
       setProdutosComStatus([]);
     }
   }, [favoritos]);
-
-  // Função para debug
-  const debugProdutos = () => {
-    console.log('=== DEBUG PRODUTOS ===');
-    console.log('Total de favoritos:', favoritos.length);
-    console.log('Produtos com status:', produtosComStatus.length);
-    
-    if (favoritos.length > 0) {
-      const primeiroProduto = favoritos[0];
-      console.log('Primeiro produto RAW:', primeiroProduto);
-      console.log('Tipo da imagem:', typeof primeiroProduto.imagem);
-      console.log('Valor da imagem:', primeiroProduto.imagem);
-      console.log('Todas as chaves:', Object.keys(primeiroProduto));
-      
-      // Verificar se é uma string URL válida
-      if (primeiroProduto.imagem) {
-        console.log('É string URL?', typeof primeiroProduto.imagem === 'string');
-        console.log('Começa com http?', primeiroProduto.imagem.startsWith('http'));
-        console.log('Começa com /?', primeiroProduto.imagem.startsWith('/'));
-        console.log('Contém http?', primeiroProduto.imagem.includes('http'));
-      }
-    }
-  };
-
-  const handleRemoverFavorito = async (produtoId: string) => {
-    Alert.alert(
-      'Remover Favorito',
-      'Tem certeza que deseja remover este item dos favoritos?',
-      [
-        { 
-          text: 'Cancelar', 
-          style: 'cancel',
-        },
-        {
-          text: 'Remover',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await removerFavoritoPorIdString(produtoId);
-            if (!success && !hasError) {
-              Alert.alert('Erro', 'Não foi possível remover o favorito');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   const abrirDetalhes = (produtoId: string, vendido: boolean = false) => {
     if (vendido) {
@@ -157,53 +99,82 @@ const TelaFavoritos: React.FC = () => {
       return 'https://via.placeholder.com/170x100/6C2BD9/FFFFFF?text=Produto';
     }
     
-    // Se já for uma URL completa
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
     
-    // Se começar com // (protocolo relativo)
     if (url.startsWith('//')) {
       return `https:${url}`;
     }
     
-    // Se for um caminho absoluto
     if (url.startsWith('/')) {
-      // Substitua pelo seu domínio real
       return `https://api.seuservidor.com${url}`;
     }
     
-    // Se não for nenhum dos casos acima, retornar fallback
-    console.warn('URL de imagem inválida:', url);
     return 'https://via.placeholder.com/170x100/6C2BD9/FFFFFF?text=Produto';
   };
 
-  const renderCardFavorito = ({ item }: { item: ProdutoComStatus }) => {
-    const estaRemovendo = isRemoving === item.id;
-    const localizacao = item.localizacao || 'Local não informado';
+  const CardFavorito = ({ item }: { item: ProdutoComStatus }) => {
+    const [favoritoLocal, setFavoritoLocal] = useState(true); // Inicia como true porque está na tela de favoritos
     const vendido = item.vendido || false;
+    const localizacao = item.localizacao || 'Local não informado';
+    const imagemUrl = corrigirUrlImagem(item.imagem || '');
     
-    // Obter URL da imagem corrigida
-    const imagemUrl = corrigirUrlImagem(item.imagem);
-    
+    // Sincroniza com o estado global
+    useEffect(() => {
+      const favoritoGlobal = isFavorito(item.id);
+      if (favoritoLocal !== favoritoGlobal) {
+        setFavoritoLocal(favoritoGlobal);
+      }
+    }, [item.id, isFavorito]);
+
+    const handleToggleFavorito = (event: any) => {
+      event?.stopPropagation?.();
+      
+      if (!user) {
+        Alert.alert(
+          'Login necessário',
+          'Faça login para gerenciar favoritos.',
+          [
+            { text: 'Fazer Login', onPress: () => router.push('/auth/Login/login') },
+            { text: 'Cancelar', style: 'cancel' },
+          ]
+        );
+        return;
+      }
+      
+      // Atualização otimista - igual à tela principal
+      const novoEstado = !favoritoLocal;
+      setFavoritoLocal(novoEstado);
+      
+      toggleFavorito(item.id).then(success => {
+        if (!success) {
+          // Reverte se falhar
+          setFavoritoLocal(!novoEstado);
+          Alert.alert('Erro', 'Não foi possível atualizar os favoritos');
+        } else if (!novoEstado) { // Se removeu (novoEstado = false)
+          Toast.show({
+            type: 'success',
+            text1: 'Removido dos favoritos!',
+            position: 'bottom',
+            visibilityTime: 1500,
+          });
+        }
+      }).catch(() => {
+        setFavoritoLocal(!novoEstado);
+      });
+    };
+
     return (
       <TouchableOpacity 
         activeOpacity={vendido ? 1 : 0.7} 
         onPress={() => abrirDetalhes(item.id, vendido)}
-        disabled={estaRemovendo || vendido}
+        disabled={vendido}
       >
         <Card containerStyle={[
           styles.card,
-          estaRemovendo && styles.removingCard,
           vendido && styles.vendidoCard
         ]}>
-          {estaRemovendo && (
-            <View style={styles.removingOverlay}>
-              <ActivityIndicator size="small" color="#FF3B30" />
-              <Text style={styles.removingText}>Removendo...</Text>
-            </View>
-          )}
-          
           {vendido && (
             <View style={styles.vendidoOverlay}>
               <Text style={styles.vendidoText}>VENDIDO</Text>
@@ -220,14 +191,6 @@ const TelaFavoritos: React.FC = () => {
                 ]}
                 resizeMode="cover"
                 PlaceholderContent={<ActivityIndicator color="#6C2BD9" />}
-                onError={(e) => {
-                  console.log('Erro ao carregar imagem:', {
-                    produtoId: item.id,
-                    urlOriginal: item.imagem,
-                    urlCorrigida: imagemUrl,
-                    erro: e.nativeEvent.error
-                  });
-                }}
               />
               {item.destaque && !vendido && (
                 <View style={styles.destaqueTag}>
@@ -240,24 +203,19 @@ const TelaFavoritos: React.FC = () => {
               <TouchableOpacity
                 style={[
                   styles.favoriteButton,
-                  estaRemovendo && styles.favoriteButtonDisabled,
                   vendido && styles.favoriteButtonVendido
                 ]}
-                onPress={() => !estaRemovendo && !vendido && handleRemoverFavorito(item.id)}
-                activeOpacity={estaRemovendo || vendido ? 1 : 0.7}
-                disabled={estaRemovendo || vendido}
+                onPress={handleToggleFavorito}
+                activeOpacity={0.7}
+                disabled={vendido}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                {estaRemovendo ? (
-                  <ActivityIndicator size="small" color="#FF3B30" />
-                ) : (
-                  <Icon
-                    name="favorite"
-                    type="material"
-                    size={22}
-                    color={vendido ? "#999" : "#FF3B30"}
-                  />
-                )}
+                <Icon
+                  name={favoritoLocal ? 'favorite' : 'favorite-border'}
+                  type="material"
+                  size={22}
+                  color={vendido ? "#999" : (favoritoLocal ? "#FF3B30" : "#666")}
+                />
               </TouchableOpacity>
 
               <View style={styles.textContent}>
@@ -275,7 +233,6 @@ const TelaFavoritos: React.FC = () => {
                   {formatarPreco(item.preco || 0)}
                 </Text>
                 
-                {/* Mensagem de vendido */}
                 {vendido && (
                   <Text style={styles.vendidoMessage}>
                     Este produto já foi vendido
@@ -313,7 +270,6 @@ const TelaFavoritos: React.FC = () => {
                   </View>
                 )}
                 
-                {/* Data de publicação se disponível */}
                 {item.dataPublicacao && !vendido && (
                   <Text style={styles.dataPublicacao}>
                     Publicado em: {new Date(item.dataPublicacao).toLocaleDateString('pt-BR')}
@@ -387,23 +343,12 @@ const TelaFavoritos: React.FC = () => {
               {produtosComStatus.length} {produtosComStatus.length === 1 ? 'item' : 'itens'}
             </Text>
           )}
-          <TouchableOpacity 
-            style={styles.debugButton}
-            onPress={debugProdutos}
-          >
-            <Icon
-              name="bug-report"
-              type="material"
-              size={20}
-              color="#666"
-            />
-          </TouchableOpacity>
         </View>
       </View>
 
       <FlatList
         data={produtosComStatus}
-        renderItem={renderCardFavorito}
+        renderItem={({ item }) => <CardFavorito item={item} />}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={[
           styles.listContainer,
@@ -428,6 +373,8 @@ const TelaFavoritos: React.FC = () => {
           ) : null
         }
       />
+      
+      <Toast />
     </SafeAreaView>
   );
 };

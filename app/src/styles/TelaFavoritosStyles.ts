@@ -1,4 +1,3 @@
-// src/styles/TelaFavoritosStyles.ts
 import { StyleSheet, Platform } from 'react-native';
 import { theme } from '@/app/src/theme/theme';
 
@@ -35,9 +34,6 @@ export default StyleSheet.create({
     color: theme.colors.gray600,
     marginRight: theme.spacing.md,
   },
-  debugButton: {
-    padding: theme.spacing.xs,
-  },
   listContainer: {
     padding: theme.spacing.md,
     paddingBottom: theme.spacing.xl,
@@ -54,9 +50,6 @@ export default StyleSheet.create({
     borderWidth: 0,
     backgroundColor: theme.colors.white,
     ...theme.shadows.md,
-  },
-  removingCard: {
-    opacity: 0.7,
   },
   vendidoCard: {
     opacity: 0.7,
@@ -79,7 +72,6 @@ export default StyleSheet.create({
   },
   productImageVendido: {
     opacity: 0.5,
-    filter: 'grayscale(80%)',
   },
   destaqueTag: {
     position: 'absolute',
@@ -111,24 +103,6 @@ export default StyleSheet.create({
     fontSize: theme.typography.sizes.xs,
     fontWeight: theme.typography.weights.bold,
   },
-  removingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-    borderRadius: theme.borderRadius.lg,
-  },
-  removingText: {
-    marginTop: theme.spacing.sm,
-    color: theme.colors.error,
-    fontSize: theme.typography.sizes.sm,
-    fontWeight: theme.typography.weights.medium,
-  },
   infoContainer: {
     flex: 1,
     position: 'relative',
@@ -140,9 +114,6 @@ export default StyleSheet.create({
     backgroundColor: 'transparent',
     zIndex: 10,
     padding: theme.spacing.xs,
-  },
-  favoriteButtonDisabled: {
-    opacity: 0.5,
   },
   favoriteButtonVendido: {
     opacity: 0.5,
@@ -181,7 +152,6 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: theme.spacing.xs,
-    color: theme.colors.gray600,
   },
   productLocation: {
     fontSize: theme.typography.sizes.sm,
@@ -225,7 +195,6 @@ export default StyleSheet.create({
   },
   emptyIconContainer: {
     marginBottom: theme.spacing.lg,
-    color: theme.colors.gray400,
   },
   emptyTitle: {
     fontSize: theme.typography.sizes.xl,
@@ -253,39 +222,35 @@ export default StyleSheet.create({
     color: theme.colors.white,
     marginLeft: theme.spacing.sm,
   },
-  refreshControl: {
-    colors: [theme.colors.primary[500]],
-    tintColor: theme.colors.primary[500],
-  },
   loadingContainer: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: 20,
-},
-loadingText: {
-  marginTop: 16,
-  fontSize: 16,
-  color: '#6B7280',
-  textAlign: 'center',
-},
-errorContainer: {
-  backgroundColor: '#FEE2E2',
-  padding: 12,
-  borderRadius: 8,
-  flexDirection: 'row',
-  alignItems: 'center',
-  marginBottom: 16,
-},
-errorText: {
-  color: '#991B1B',
-  marginLeft: 8,
-  flex: 1,
-},
-dataPublicacao: {
-  fontSize: 12,
-  color: '#6B7280',
-  marginTop: 4,
-  fontStyle: 'italic',
-},
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: theme.colors.gray500,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    backgroundColor: theme.colors.error + '20',
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  errorText: {
+    color: theme.colors.error,
+    marginLeft: 8,
+    flex: 1,
+  },
+  dataPublicacao: {
+    fontSize: 12,
+    color: theme.colors.gray500,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
 });

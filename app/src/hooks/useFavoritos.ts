@@ -9,71 +9,44 @@ export const useFavoritos = () => {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Função para verificar se é favorito (sincrona, verifica estado local)
   const isFavorito = useCallback((produtoId: string | number): boolean => {
     const idStr = produtoId.toString();
-    const encontrado = favoritos.some(fav => fav.id.toString() === idStr);
-    return encontrado;
+    return favoritos.some(fav => fav.id.toString() === idStr);
   }, [favoritos]);
 
-const carregarFavoritos = useCallback(async () => {
-  if (!user) {
-    setFavoritos([]);
-    return;
-  }
-
-  console.log('🔄 Iniciando carregamento de favoritos...');
-  setLoading(true);
-  setError(null);
-  
-  try {
-    const produtos = await favoritoService.listarFavoritos();
-    
-    console.log('✅ Produtos recebidos da API:', produtos.length);
-    
-    // DEBUG: Verificar estrutura do primeiro produto
-    if (produtos.length > 0) {
-      const primeiro = produtos[0];
-      console.log('📋 ESTRUTURA COMPLETA DO PRIMEIRO PRODUTO:', {
-        ...primeiro,
-        // Verificar URL da imagem
-        imagemTipo: typeof primeiro.imagem,
-        imagemValor: primeiro.imagem,
-        // Verificar outras propriedades
-        todasChaves: Object.keys(primeiro)
-      });
-      
-      // Verificar se a imagem é válida
-      if (primeiro.imagem) {
-        console.log('🔗 Teste de URL da imagem:');
-        console.log('É string?', typeof primeiro.imagem === 'string');
-        console.log('Tem conteúdo?', primeiro.imagem.length > 0);
-        console.log('Começa com http?', primeiro.imagem.startsWith('http'));
-        console.log('Começa com /?', primeiro.imagem.startsWith('/'));
-      }
+  const carregarFavoritos = useCallback(async () => {
+    if (!user) {
+      setFavoritos([]);
+      return;
     }
+
+    console.log('🔄 Carregando favoritos...');
+    setLoading(true);
+    setError(null);
     
-    // Mapear produtos
-    const produtosMapeados = produtos.map(produto => ({
-      ...produto,
-      id: produto.id.toString(),
-      localizacao: produto.localizacao || 'Local não informado',
-      // Se a imagem for vazia ou inválida, usar fallback
-      imagem: produto.imagem && produto.imagem.trim() !== '' 
-        ? produto.imagem 
-        : 'https://via.placeholder.com/170x100/6C2BD9/FFFFFF?text=Produto',
-    }));
-    
-    setFavoritos(produtosMapeados);
-    
-  } catch (err: any) {
-    console.error('❌ Erro ao carregar favoritos:', err);
-    setError(err.message || 'Erro ao carregar favoritos');
-  } finally {
-    setLoading(false);
-  }
-}, [user]);
-  // Função para alternar favorito (adicionar/remover)
+    try {
+      const produtos = await favoritoService.listarFavoritos();
+      
+      const produtosMapeados = produtos.map(produto => ({
+        ...produto,
+        id: produto.id.toString(),
+        localizacao: produto.localizacao || 'Local não informado',
+        imagem: produto.imagem && produto.imagem.trim() !== '' 
+          ? produto.imagem 
+          : 'https://via.placeholder.com/170x100/6C2BD9/FFFFFF?text=Produto',
+      }));
+      
+      console.log('✅ Favoritos carregados:', produtosMapeados.length);
+      setFavoritos(produtosMapeados);
+      
+    } catch (err: any) {
+      console.error('❌ Erro ao carregar favoritos:', err);
+      setError(err.message || 'Erro ao carregar favoritos');
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   const toggleFavorito = useCallback(async (produtoId: string | number) => {
     if (!user) {
       setError('Faça login para favoritar');
@@ -91,30 +64,27 @@ const carregarFavoritos = useCallback(async () => {
       const jaEFavorito = isFavorito(produtoId);
       
       if (jaEFavorito) {
+        console.log(`🗑️ Removendo favorito ${produtoId}`);
         await favoritoService.removerFavorito(idNumero);
         
-        // Remove do estado local imediatamente
+        // Remove do estado local
         setFavoritos(prev => prev.filter(p => p.id.toString() !== idStr));
-        
+        return true;
       } else {
+        console.log(`➕ Adicionando favorito ${produtoId}`);
         await favoritoService.adicionarFavorito(idNumero);
         
-        // Recarrega lista para ter dados completos do produto
+        // Recarrega lista para ter dados completos
         await carregarFavoritos();
+        return true;
       }
       
-      return true;
-      
     } catch (err: any) {
+      console.error('❌ Erro ao atualizar favorito:', err);
       setError(err.message || 'Erro ao atualizar favorito');
       return false;
     }
   }, [user, isFavorito, carregarFavoritos]);
-
-  // Função específica para tela de favoritos (remove por ID string)
-  const removerFavoritoPorIdString = useCallback(async (produtoId: string) => {
-    return toggleFavorito(produtoId);
-  }, [toggleFavorito]);
 
   // Carregar favoritos quando o usuário mudar
   useEffect(() => {
@@ -136,14 +106,9 @@ const carregarFavoritos = useCallback(async () => {
     // Funções
     toggleFavorito,
     isFavorito,
-    removerFavoritoPorIdString,
     recarregarFavoritos: carregarFavoritos,
     
-    // Métodos de conveniência
-    adicionarFavorito: (produtoId: string | number) => 
-      !isFavorito(produtoId) ? toggleFavorito(produtoId) : Promise.resolve(false),
-    
-    removerFavorito: (produtoId: string | number) => 
-      isFavorito(produtoId) ? toggleFavorito(produtoId) : Promise.resolve(false),
+    // Para compatibilidade
+    removerFavoritoPorIdString: toggleFavorito,
   };
 };
